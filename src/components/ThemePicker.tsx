@@ -69,7 +69,7 @@ export function ThemePicker({ scheme, onChange }: Props) {
 
   return (
     <div ref={rootRef}>
-      <ToolButton label={`Цветовая схема: ${scheme.label}`} onClick={toggle} pressed={open}>
+      <ToolButton label={`Цветовая схема: ${scheme.label}`} tone="pink" onClick={toggle} pressed={open}>
         <path d="M8 1.75a6.25 6.25 0 1 0 0 12.5c.9 0 1.4-.7 1.1-1.5-.4-1 .2-2 1.3-2h1.6a2.25 2.25 0 0 0 2.25-2.25A6.25 6.25 0 0 0 8 1.75Z" />
         <circle cx="4.9" cy="7.3" r=".9" />
         <circle cx="7.3" cy="4.6" r=".9" />

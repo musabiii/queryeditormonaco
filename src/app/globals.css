@@ -10,11 +10,30 @@
   --danger: #cf222e;
   /* Заголовки блоков панелей — темнее фона панели в любой схеме. */
   --panel-header: color-mix(in srgb, var(--panel) 90%, black);
+  /* Цвета значков панели команд: в тёмных схемах светлее. */
+  --icon-amber: #9a6700;
+  --icon-green: #1a7f37;
+  --icon-red: #cf222e;
+  --icon-blue: #0969da;
+  --icon-orange: #bc4c00;
+  --icon-teal: #1b7c83;
+  --icon-indigo: #4f46e5;
+  --icon-purple: #8250df;
+  --icon-pink: #bf3989;
   color-scheme: light;
 }
 
 :root[data-theme="dark"] {
   --panel-header: color-mix(in srgb, var(--panel) 70%, black);
+  --icon-amber: #d29922;
+  --icon-green: #3fb950;
+  --icon-red: #f85149;
+  --icon-blue: #58a6ff;
+  --icon-orange: #f0883e;
+  --icon-teal: #39c5cf;
+  --icon-indigo: #a5b4fc;
+  --icon-purple: #bc8cff;
+  --icon-pink: #f778ba;
 }
 
 @theme inline {
@@ -25,6 +44,15 @@
   --color-border: var(--border);
   --color-muted: var(--muted);
   --color-danger: var(--danger);
+  --color-icon-amber: var(--icon-amber);
+  --color-icon-green: var(--icon-green);
+  --color-icon-red: var(--icon-red);
+  --color-icon-blue: var(--icon-blue);
+  --color-icon-orange: var(--icon-orange);
+  --color-icon-teal: var(--icon-teal);
+  --color-icon-indigo: var(--icon-indigo);
+  --color-icon-purple: var(--icon-purple);
+  --color-icon-pink: var(--icon-pink);
   --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 

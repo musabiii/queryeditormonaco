@@ -30,24 +30,24 @@ export function QueryToolbar(props: Props) {
       <h1 className="mr-3 hidden shrink-0 text-sm font-semibold whitespace-nowrap sm:block">Редактор запросов 1С</h1>
 
       <div role="toolbar" aria-label="Панель инструментов" className="flex items-center gap-1">
-        <ToolButton label="Структура конфигурации" onClick={props.onToggleTree} pressed={props.treeOpen}>
+        <ToolButton label="Структура конфигурации" tone="amber" onClick={props.onToggleTree} pressed={props.treeOpen}>
           <path d="M2.5 3h4M4.5 3v9.5M4.5 7.5h3M4.5 12.5h3M9 7.5h4.5M9 12.5h4.5" />
         </ToolButton>
 
         <Divider />
 
-        <ToolButton label="Закомментировать (Ctrl+Num /)" onClick={props.onComment}>
+        <ToolButton label="Закомментировать (Ctrl+Num /)" tone="green" onClick={props.onComment}>
           <path d="M6 2.5 3 12.5M10 2.5 7 12.5" />
           <path d="M12.5 10v5M10 12.5h5" />
         </ToolButton>
-        <ToolButton label="Раскомментировать (Ctrl+Shift+Num /)" onClick={props.onUncomment}>
+        <ToolButton label="Раскомментировать (Ctrl+Shift+Num /)" tone="red" onClick={props.onUncomment}>
           <path d="M6 2.5 3 12.5M10 2.5 7 12.5" />
           <path d="m10.5 10.5 4 4m0-4-4 4" />
         </ToolButton>
 
         <Divider />
 
-        <ToolButton label="Форматировать (Shift+Alt+F)" onClick={props.onFormat}>
+        <ToolButton label="Форматировать (Shift+Alt+F)" tone="blue" onClick={props.onFormat}>
           <path d="M2 3h12M5 6.5h9M5 10h9M2 13.5h8" />
         </ToolButton>
         <ToolButton
@@ -58,7 +58,7 @@ export function QueryToolbar(props: Props) {
           <path d="M8 14V2.5h5M11 2.5V14M8 2.5a3 3 0 0 0 0 6" />
         </ToolButton>
         <UnwrapButton onUnwrap={props.onUnwrap} />
-        <ToolButton label="Текст для кода 1С: запрос с параметрами и обходом выборки" onClick={props.onShowBslCode}>
+        <ToolButton label="Текст для кода 1С: запрос с параметрами и обходом выборки" tone="teal" onClick={props.onShowBslCode}>
           <path d="M5 3.5 1.5 8 5 12.5M11 3.5 14.5 8 11 12.5M9.5 2.5l-3 11" />
         </ToolButton>
 
@@ -68,11 +68,11 @@ export function QueryToolbar(props: Props) {
       </div>
 
       <div className="ml-auto flex items-center gap-1">
-        <ToolButton label="Конфигурации" onClick={props.onOpenConfigurations}>
+        <ToolButton label="Конфигурации" tone="amber" onClick={props.onOpenConfigurations}>
           <ellipse cx="8" cy="3.75" rx="5" ry="2" />
           <path d="M3 3.75v8.5c0 1.1 2.24 2 5 2s5-.9 5-2v-8.5M3 8c0 1.1 2.24 2 5 2s5-.9 5-2" />
         </ToolButton>
-        <ToolButton label="ИИ-помощник" onClick={props.onToggleAi} pressed={props.aiOpen}>
+        <ToolButton label="ИИ-помощник" tone="purple" onClick={props.onToggleAi} pressed={props.aiOpen}>
           <path d="M6.5 2.5 7.6 5.9a1 1 0 0 0 .6.6l3.3 1.1-3.3 1.1a1 1 0 0 0-.6.6L6.5 12.7 5.4 9.3a1 1 0 0 0-.6-.6L1.5 7.6l3.3-1.1a1 1 0 0 0 .6-.6Z" />
           <path d="M12.5 1.5v3M11 3h3M12 11v3M10.5 12.5h3" />
         </ToolButton>
@@ -99,7 +99,7 @@ function CopyButton({ getText }: { getText: () => string }) {
     state === "copied" ? "Скопировано" : state === "failed" ? "Не удалось скопировать" : "Скопировать весь текст";
 
   return (
-    <ToolButton label={label} onClick={copy}>
+    <ToolButton label={label} tone={state === "copied" ? "green" : state === "failed" ? "red" : "indigo"} onClick={copy}>
       {state === "copied" ? (
         <path d="m3 8.5 3 3 7-7" />
       ) : (
@@ -133,6 +133,7 @@ function UnwrapButton({ onUnwrap }: { onUnwrap: () => boolean }) {
           ? "Не похоже на текст запроса из кода 1С"
           : "Убрать оформление кода 1С: кавычки и «|» (в выделении или во всём тексте)"
       }
+      tone={failed ? "red" : "orange"}
       onClick={unwrap}
     >
       {failed ? (
