@@ -173,11 +173,15 @@ export function QueryEditor({
     });
     instance.focus();
 
-    // Сочетания клавиш конфигуратора 1С: Ctrl+Num/ и Ctrl+Shift+Num/.
+    // Сочетания клавиш конфигуратора 1С: Ctrl+Num/, Ctrl+Shift+Num/ и Ctrl+L.
     const { KeyMod, KeyCode } = monaco;
     instance.addCommand(KeyMod.CtrlCmd | KeyCode.NumpadDivide, () => commentLines(instance));
     instance.addCommand(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.NumpadDivide, () =>
       uncommentLines(instance),
+    );
+    // В Monaco Ctrl+L выделяет строку, в 1С — удаляет её.
+    instance.addCommand(KeyMod.CtrlCmd | KeyCode.KeyL, () =>
+      instance.trigger("keyboard", "editor.action.deleteLines", null),
     );
 
     const reportStatus = () => {
