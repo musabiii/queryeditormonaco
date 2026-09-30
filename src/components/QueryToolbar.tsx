@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { copyToClipboard } from "@/lib/clipboard";
 import { ToolButton } from "./ToolButton";
-import type { Theme } from "@/lib/theme";
+import type { ColorScheme } from "@/lib/color-schemes";
+import { ThemePicker } from "./ThemePicker";
 
 type Props = {
   onComment: () => void;
@@ -14,13 +15,11 @@ type Props = {
   onToggleWhitespace: () => void;
   aiOpen: boolean;
   onToggleAi: () => void;
-  theme: Theme;
-  onThemeChange: (theme: Theme) => void;
+  scheme: ColorScheme;
+  onSchemeChange: (id: string) => void;
 };
 
 export function QueryToolbar(props: Props) {
-  const nextTheme = props.theme === "dark" ? "light" : "dark";
-
   return (
     <header className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-panel px-4">
       <h1 className="mr-3 hidden shrink-0 text-sm font-semibold whitespace-nowrap sm:block">Редактор запросов 1С</h1>
@@ -58,19 +57,7 @@ export function QueryToolbar(props: Props) {
           <path d="M6.5 2.5 7.6 5.9a1 1 0 0 0 .6.6l3.3 1.1-3.3 1.1a1 1 0 0 0-.6.6L6.5 12.7 5.4 9.3a1 1 0 0 0-.6-.6L1.5 7.6l3.3-1.1a1 1 0 0 0 .6-.6Z" />
           <path d="M12.5 1.5v3M11 3h3M12 11v3M10.5 12.5h3" />
         </ToolButton>
-        <ToolButton
-          label={nextTheme === "dark" ? "Тёмная тема" : "Светлая тема"}
-          onClick={() => props.onThemeChange(nextTheme)}
-        >
-          {props.theme === "dark" ? (
-            <>
-              <circle cx="8" cy="8" r="2.75" />
-              <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06" />
-            </>
-          ) : (
-            <path d="M13.5 9.6A5.5 5.5 0 1 1 6.4 2.5a4.3 4.3 0 0 0 7.1 7.1Z" />
-          )}
-        </ToolButton>
+        <ThemePicker scheme={props.scheme} onChange={props.onSchemeChange} />
       </div>
     </header>
   );

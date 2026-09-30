@@ -6,14 +6,11 @@ import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } f
 import { commentLines, uncommentLines } from "@/lib/comment-lines";
 import { loadMonaco } from "@/lib/monaco-loader";
 import {
-  DARK_THEME,
   LANGUAGE_ID,
-  LIGHT_THEME,
   parseBatch,
   registerQueryLanguage,
   type BatchQuery,
 } from "@/lib/query-language";
-import type { Theme } from "@/lib/theme";
 
 export type EditorStatus = {
   line: number;
@@ -70,7 +67,8 @@ function withEditor(
 
 type Props = {
   defaultValue: string;
-  theme: Theme;
+  /** Идентификатор цветовой схемы — он же имя темы Monaco. */
+  theme: string;
   onStatusChange?: (status: EditorStatus) => void;
   onBatchChange?: (queries: BatchQuery[]) => void;
   /** Показывать пробелы и табы во всём тексте, а не только в выделении. */
@@ -216,7 +214,7 @@ export function QueryEditor({
       height="100%"
       language={LANGUAGE_ID}
       defaultValue={defaultValue}
-      theme={theme === "dark" ? DARK_THEME : LIGHT_THEME}
+      theme={theme}
       options={options}
       beforeMount={registerQueryLanguage}
       onMount={handleMount}

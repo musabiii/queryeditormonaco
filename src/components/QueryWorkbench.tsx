@@ -3,14 +3,14 @@
 import { useRef, useState } from "react";
 import type { BatchQuery } from "@/lib/query-language";
 import { SAMPLE_QUERY } from "@/lib/sample-query";
-import { useTheme } from "@/lib/use-theme";
+import { useColorScheme } from "@/lib/use-theme";
 import { QueryEditor, type EditorStatus, type QueryEditorHandle } from "./QueryEditor";
 import { QueryStructure } from "./QueryStructure";
 import { QueryToolbar } from "./QueryToolbar";
 import { AiPanel } from "./ai/AiPanel";
 
 export function QueryWorkbench() {
-  const [theme, setTheme] = useTheme();
+  const [scheme, setScheme] = useColorScheme();
   const [status, setStatus] = useState<EditorStatus | null>(null);
   const [queries, setQueries] = useState<BatchQuery[]>([]);
   const [showWhitespace, setShowWhitespace] = useState(false);
@@ -28,8 +28,8 @@ export function QueryWorkbench() {
         onToggleWhitespace={() => setShowWhitespace((value) => !value)}
         aiOpen={aiOpen}
         onToggleAi={() => setAiOpen((value) => !value)}
-        theme={theme}
-        onThemeChange={setTheme}
+        scheme={scheme}
+        onSchemeChange={setScheme}
       />
 
       <main className="flex min-h-0 flex-1">
@@ -37,7 +37,7 @@ export function QueryWorkbench() {
           <QueryEditor
             ref={editorRef}
             defaultValue={SAMPLE_QUERY}
-            theme={theme}
+            theme={scheme.id}
             onStatusChange={setStatus}
             onBatchChange={setQueries}
             showWhitespace={showWhitespace}

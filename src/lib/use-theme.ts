@@ -1,21 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import { DARK_MEDIA_QUERY, THEME_STORAGE_KEY, type Theme } from "./theme";
+import { DEFAULT_LIGHT_SCHEME, getColorScheme, type ColorScheme } from "./color-schemes";
+import { DARK_MEDIA_QUERY, THEME_STORAGE_KEY, applySchemeToDocument, resolveSchemeId } from "./theme";
 
 const listeners = new Set<() => void>();
 // Запасной вариант, если localStorage недоступен (приватный режим и т.п.).
-let chosenTheme: Theme | null = null;
+let chosenScheme: string | null = null;
 
-function readTheme(): Theme {
+function readSchemeId(): string {
+  let saved: string | null = null;
   try {
-    const saved = localStorage.getItem(THEME_STORAGE_KEY);
-    if (saved === "light" || saved === "dark") return saved;
+    saved = localStorage.getItem(THEME_STORAGE_KEY);
   } catch {
     // Хранилище недоступно — используем выбор из памяти или системную тему.
   }
-  if (chosenTheme) return chosenTheme;
-  return window.matchMedia(DARK_MEDIA_QUERY).matches ? "dark" : "light";
+  return resolveSchemeId(saved ?? chosenScheme, window.matchMedia(DARK_MEDIA_QUERY).matches);
 }
 
 function subscribe(onChange: () => void) {
@@ -30,16 +30,17 @@ function subscribe(onChange: () => void) {
   };
 }
 
-/** Тема интерфейса: сохранённый выбор пользователя, иначе системная. */
-export function useTheme(): [Theme, (theme: Theme) => void] {
-  const theme = useSyncExternalStore(subscribe, readTheme, (): Theme => "light");
+/** Цветовая схема: сохранённый выбор пользователя, иначе светлая или тёмная по системе. */
+export function useColorScheme(): [ColorScheme, (id: string) => void] {
+  const id = useSyncExternalStore(subscribe, readSchemeId, () => DEFAULT_LIGHT_SCHEME);
+  const scheme = getColorScheme(id);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
+    applySchemeToDocument(scheme);
+  }, [scheme]);
 
-  const setTheme = useCallback((next: Theme) => {
-    chosenTheme = next;
+  const setScheme = useCallback((next: string) => {
+    chosenScheme = next;
     try {
       localStorage.setItem(THEME_STORAGE_KEY, next);
     } catch {
@@ -48,5 +49,5 @@ export function useTheme(): [Theme, (theme: Theme) => void] {
     listeners.forEach((listener) => listener());
   }, []);
 
-  return [theme, setTheme];
+  return [scheme, setScheme];
 }

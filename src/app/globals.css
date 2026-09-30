@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* Значения по умолчанию (схема «1С»); выбранная схема переопределяет их на <html> — см. src/lib/theme.ts. */
 :root {
   --background: #ffffff;
   --foreground: #1f2328;
@@ -8,17 +9,6 @@
   --muted: #59636e;
   --danger: #cf222e;
   color-scheme: light;
-}
-
-/* Тёмная тема включается атрибутом data-theme на <html> (см. src/lib/theme.ts). */
-:root[data-theme="dark"] {
-  --background: #1e1e1e;
-  --foreground: #e6e6e6;
-  --panel: #181818;
-  --border: #2b2b2b;
-  --muted: #9d9d9d;
-  --danger: #f85149;
-  color-scheme: dark;
 }
 
 @theme inline {
