@@ -1,6 +1,11 @@
 "use client";
 
-import { batchQueryTitle, type BatchQuery, type BatchQueryKind } from "@/lib/query-language";
+import {
+  batchQueryTitle,
+  type BatchQuery,
+  type BatchQueryKind,
+  type QueryParameter,
+} from "@/lib/query-language";
 
 const KIND_LABEL: Record<BatchQueryKind, string> = {
   select: "Запрос выборки",
@@ -13,19 +18,28 @@ type Props = {
   /** Смещение курсора: запрос, в котором он стоит, подсвечивается. */
   cursorOffset?: number;
   onSelect: (query: BatchQuery) => void;
+  parameters: QueryParameter[];
+  /** Выделяет вхождение параметра в тексте. */
+  onSelectRange: (start: number, end: number) => void;
 };
 
-/** Список запросов пакета, как на вкладке «Пакет запросов» конструктора 1С. */
-export function QueryStructure({ queries, cursorOffset, onSelect }: Props) {
+const HEADING =
+  "flex h-8 shrink-0 items-center justify-between border-b border-border px-3 text-xs font-semibold tracking-wide text-muted uppercase";
+
+/**
+ * Список запросов пакета, как на вкладке «Пакет запросов» конструктора 1С,
+ * а под ним — параметры запроса.
+ */
+export function QueryStructure({ queries, cursorOffset, onSelect, parameters, onSelectRange }: Props) {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-l border-border bg-panel md:flex">
-      <h2 className="flex h-8 shrink-0 items-center justify-between border-b border-border px-3 text-xs font-semibold tracking-wide text-muted uppercase">
+      <h2 className={HEADING}>
         Структура запроса
         {queries.length > 0 && <span className="font-normal normal-case">{queries.length}</span>}
       </h2>
 
       {queries.length === 0 ? (
-        <p className="p-3 text-sm text-muted">Запрос пуст</p>
+        <p className="flex-1 p-3 text-sm text-muted">Запрос пуст</p>
       ) : (
         <ol className="min-h-0 flex-1 overflow-y-auto py-1">
           {queries.map((query) => {
@@ -54,7 +68,62 @@ export function QueryStructure({ queries, cursorOffset, onSelect }: Props) {
           })}
         </ol>
       )}
+
+      <QueryParameters parameters={parameters} cursorOffset={cursorOffset} onSelectRange={onSelectRange} />
     </aside>
+  );
+}
+
+function QueryParameters(props: {
+  parameters: QueryParameter[];
+  cursorOffset?: number;
+  onSelectRange: (start: number, end: number) => void;
+}) {
+  const { parameters, cursorOffset = 0 } = props;
+
+  // Каждый щелчок — к следующему вхождению после курсора, после последнего — снова к первому.
+  const selectNext = ({ occurrences }: QueryParameter) => {
+    const next = occurrences.find((item) => item.start >= cursorOffset) ?? occurrences[0];
+    props.onSelectRange(next.start, next.end);
+  };
+
+  return (
+    <section aria-labelledby="query-parameters" className="flex max-h-[40%] shrink-0 flex-col border-t border-border">
+      <h2 id="query-parameters" className={HEADING}>
+        Параметры
+        {parameters.length > 0 && <span className="font-normal normal-case">{parameters.length}</span>}
+      </h2>
+      {parameters.length === 0 ? (
+        <p className="p-3 text-sm text-muted">Параметров нет</p>
+      ) : (
+        <ul className="min-h-0 overflow-y-auto py-1">
+          {parameters.map((parameter) => {
+            const count = parameter.occurrences.length;
+            const active = parameter.occurrences.some(
+              (item) => cursorOffset >= item.start && cursorOffset <= item.end,
+            );
+            return (
+              <li key={parameter.name.toUpperCase()}>
+                <button
+                  type="button"
+                  onClick={() => selectNext(parameter)}
+                  title={count > 1 ? `Вхождений: ${count} — щелчок переходит к следующему` : "Перейти к параметру"}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-border/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground ${
+                    active ? "bg-border/80" : ""
+                  }`}
+                >
+                  <span className="shrink-0 text-muted" aria-hidden>
+                    &amp;
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{parameter.name}</span>
+                  {count > 1 && <span className="shrink-0 text-xs text-muted">{count}</span>}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 

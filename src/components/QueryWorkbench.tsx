@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { setCompletionMetadata, type BatchQuery } from "@/lib/query-language";
+import { setCompletionMetadata, type BatchQuery, type QueryParameter } from "@/lib/query-language";
 import { loadModel } from "@/lib/metadata/builtin";
 import { SAMPLE_QUERY } from "@/lib/sample-query";
 import { useConfigurations } from "@/lib/metadata/use-configurations";
@@ -18,6 +18,7 @@ export function QueryWorkbench() {
   const [scheme, setScheme] = useColorScheme();
   const [status, setStatus] = useState<EditorStatus | null>(null);
   const [queries, setQueries] = useState<BatchQuery[]>([]);
+  const [parameters, setParameters] = useState<QueryParameter[]>([]);
   const [showWhitespace, setShowWhitespace] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [configurationsOpen, setConfigurationsOpen] = useState(false);
@@ -92,6 +93,7 @@ export function QueryWorkbench() {
             theme={scheme.id}
             onStatusChange={setStatus}
             onBatchChange={setQueries}
+            onParametersChange={setParameters}
             showWhitespace={showWhitespace}
           />
         </div>
@@ -99,6 +101,8 @@ export function QueryWorkbench() {
           queries={queries}
           cursorOffset={status?.offset}
           onSelect={(query) => editorRef.current?.selectRange(query.start, query.end)}
+          parameters={parameters}
+          onSelectRange={(start, end) => editorRef.current?.selectRange(start, end)}
         />
         <AiPanel
           open={aiOpen}

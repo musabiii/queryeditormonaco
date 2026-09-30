@@ -7,9 +7,11 @@ import { commentLines, uncommentLines } from "@/lib/comment-lines";
 import { loadMonaco } from "@/lib/monaco-loader";
 import {
   LANGUAGE_ID,
+  collectParameters,
   parseBatch,
   registerQueryLanguage,
   type BatchQuery,
+  type QueryParameter,
 } from "@/lib/query-language";
 
 export type EditorStatus = {
@@ -80,6 +82,7 @@ type Props = {
   theme: string;
   onStatusChange?: (status: EditorStatus) => void;
   onBatchChange?: (queries: BatchQuery[]) => void;
+  onParametersChange?: (parameters: QueryParameter[]) => void;
   /** Показывать пробелы и табы во всём тексте, а не только в выделении. */
   showWhitespace?: boolean;
   ref?: Ref<QueryEditorHandle>;
@@ -90,6 +93,7 @@ export function QueryEditor({
   theme,
   onStatusChange,
   onBatchChange,
+  onParametersChange,
   showWhitespace = false,
   ref,
 }: Props) {
@@ -200,7 +204,10 @@ export function QueryEditor({
 
     const reportBatch = () => {
       const model = instance.getModel();
-      if (model && onBatchChange) onBatchChange(parseBatch(model.getValue()));
+      if (!model) return;
+      const text = model.getValue();
+      onBatchChange?.(parseBatch(text));
+      onParametersChange?.(collectParameters(text));
     };
 
     instance.onDidChangeCursorSelection(reportStatus);
