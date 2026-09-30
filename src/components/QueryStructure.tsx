@@ -31,19 +31,21 @@ export function QueryStructure({ queries, cursorOffset, onSelect }: Props) {
           {queries.map((query) => {
             const active =
               cursorOffset !== undefined && cursorOffset >= query.start && cursorOffset <= query.end;
+            // Жирным — то, что участвует в результате: запросы пакета и используемые временные таблицы.
+            const bold = query.kind === "select" || (query.kind === "temp-table" && query.used);
             return (
               <li key={`${query.index}-${query.start}`}>
                 <button
                   type="button"
                   onClick={() => onSelect(query)}
-                  title={KIND_LABEL[query.kind]}
+                  title={query.kind === "temp-table" && !query.used ? `${KIND_LABEL[query.kind]} — не используется` : KIND_LABEL[query.kind]}
                   aria-current={active ? "true" : undefined}
                   className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-border/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground ${
-                    active ? "bg-border/80 font-medium" : ""
+                    active ? "bg-border/80" : ""
                   }`}
                 >
                   <KindIcon kind={query.kind} />
-                  <span className={`truncate ${query.kind === "drop" ? "text-muted" : ""}`}>
+                  <span className={`truncate ${bold ? "font-semibold" : ""} ${query.kind === "drop" ? "text-muted" : ""}`}>
                     {batchQueryTitle(query)}
                   </span>
                 </button>

@@ -18,6 +18,8 @@ export type BatchQuery = {
   /** Смещения в тексте: от первой лексемы запроса до конца последней (без «;»). */
   start: number;
   end: number;
+  /** Для временной таблицы: к ней обращаются следующие запросы пакета. */
+  used?: boolean;
 };
 
 const INTO = new Set(["ПОМЕСТИТЬ", "INTO"]);
@@ -25,10 +27,14 @@ const DROP = new Set(["УНИЧТОЖИТЬ", "DROP"]);
 
 export function parseBatch(text: string): BatchQuery[] {
   const queries: BatchQuery[] = [];
+  const queryTokens: Token[][] = [];
   let current: Token[] = [];
 
   const flush = () => {
-    if (current.length > 0) queries.push(describe(current, queries.length + 1));
+    if (current.length > 0) {
+      queries.push(describe(current, queries.length + 1));
+      queryTokens.push(current);
+    }
     current = [];
   };
 
@@ -39,7 +45,43 @@ export function parseBatch(text: string): BatchQuery[] {
   }
   flush();
 
+  markUsedTables(queries, queryTokens);
   return queries;
+}
+
+/**
+ * Временная таблица считается использованной, если её имя встречается в
+ * следующих запросах — до того, как её уничтожат или создадут заново.
+ */
+function markUsedTables(queries: BatchQuery[], queryTokens: Token[][]) {
+  queries.forEach((query, i) => {
+    if (query.kind !== "temp-table" || !query.tableName) return;
+    const name = query.tableName.toUpperCase();
+    query.used = false;
+    for (let j = i + 1; j < queries.length; j++) {
+      const later = queries[j];
+      if (later.tableName?.toUpperCase() === name) {
+        if (later.kind === "drop") return;
+        // ПОМЕСТИТЬ с тем же именем: запрос мог читать старую таблицу, дальше — уже новая.
+        query.used = referencesTable(queryTokens[j], name, true);
+        return;
+      }
+      if (referencesTable(queryTokens[j], name, false)) {
+        query.used = true;
+        return;
+      }
+    }
+  });
+}
+
+/** Имя таблицы как отдельное слово, а не поле после точки. */
+function referencesTable(tokens: Token[], name: string, skipInto: boolean) {
+  return tokens.some((token, k) => {
+    if (token.kind !== "word" || token.text.toUpperCase() !== name) return false;
+    if (tokens[k - 1]?.text === ".") return false;
+    if (skipInto && INTO.has(tokens[k - 1]?.text.toUpperCase() ?? "")) return false;
+    return true;
+  });
 }
 
 function describe(tokens: Token[], index: number): BatchQuery {
