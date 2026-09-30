@@ -1,13 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
-import type { BatchQuery } from "@/lib/query-language";
+import { useEffect, useRef, useState } from "react";
+import { setCompletionMetadata, type BatchQuery } from "@/lib/query-language";
+import { loadConfiguration } from "@/lib/metadata/store";
 import { SAMPLE_QUERY } from "@/lib/sample-query";
+import { useConfigurations } from "@/lib/metadata/use-configurations";
 import { useColorScheme } from "@/lib/use-theme";
 import { QueryEditor, type EditorStatus, type QueryEditorHandle } from "./QueryEditor";
 import { QueryStructure } from "./QueryStructure";
 import { QueryToolbar } from "./QueryToolbar";
 import { AiPanel } from "./ai/AiPanel";
+import { ConfigurationsDialog } from "./metadata/ConfigurationsDialog";
 
 export function QueryWorkbench() {
   const [scheme, setScheme] = useColorScheme();
@@ -15,6 +18,26 @@ export function QueryWorkbench() {
   const [queries, setQueries] = useState<BatchQuery[]>([]);
   const [showWhitespace, setShowWhitespace] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [configurationsOpen, setConfigurationsOpen] = useState(false);
+  const configurations = useConfigurations();
+  const activeConfiguration = configurations.active;
+  const activeId = activeConfiguration?.id ?? null;
+
+  // Автодополнение работает по активной конфигурации: модель читается из IndexedDB.
+  useEffect(() => {
+    if (!activeId) {
+      setCompletionMetadata(null);
+      return;
+    }
+    let current = true;
+    loadConfiguration(activeId).then(
+      (model) => current && setCompletionMetadata(model ?? null),
+      () => current && setCompletionMetadata(null),
+    );
+    return () => {
+      current = false;
+    };
+  }, [activeId]);
   const editorRef = useRef<QueryEditorHandle>(null);
 
   return (
@@ -28,6 +51,7 @@ export function QueryWorkbench() {
         onToggleWhitespace={() => setShowWhitespace((value) => !value)}
         aiOpen={aiOpen}
         onToggleAi={() => setAiOpen((value) => !value)}
+        onOpenConfigurations={() => setConfigurationsOpen(true)}
         scheme={scheme}
         onSchemeChange={setScheme}
       />
@@ -70,8 +94,22 @@ export function QueryWorkbench() {
             <span>Строк: {status.lineCount}</span>
           </>
         )}
-        <span className="ml-auto">Язык запросов 1С</span>
+        <button
+          type="button"
+          onClick={() => setConfigurationsOpen(true)}
+          title="Конфигурации"
+          className="ml-auto truncate hover:text-foreground"
+        >
+          {activeConfiguration
+            ? `Конфигурация: ${activeConfiguration.synonym ?? activeConfiguration.name}${activeConfiguration.version ? " " + activeConfiguration.version : ""}`
+            : "Конфигурация не загружена"}
+        </button>
+        <span>Язык запросов 1С</span>
       </footer>
+
+      {configurationsOpen && (
+        <ConfigurationsDialog configurations={configurations} onClose={() => setConfigurationsOpen(false)} />
+      )}
     </div>
   );
 }

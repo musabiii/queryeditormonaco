@@ -15,6 +15,7 @@ type Props = {
   onToggleWhitespace: () => void;
   aiOpen: boolean;
   onToggleAi: () => void;
+  onOpenConfigurations: () => void;
   scheme: ColorScheme;
   onSchemeChange: (id: string) => void;
 };
@@ -53,6 +54,10 @@ export function QueryToolbar(props: Props) {
       </div>
 
       <div className="ml-auto flex items-center gap-1">
+        <ToolButton label="Конфигурации" onClick={props.onOpenConfigurations}>
+          <ellipse cx="8" cy="3.75" rx="5" ry="2" />
+          <path d="M3 3.75v8.5c0 1.1 2.24 2 5 2s5-.9 5-2v-8.5M3 8c0 1.1 2.24 2 5 2s5-.9 5-2" />
+        </ToolButton>
         <ToolButton label="ИИ-помощник" onClick={props.onToggleAi} pressed={props.aiOpen}>
           <path d="M6.5 2.5 7.6 5.9a1 1 0 0 0 .6.6l3.3 1.1-3.3 1.1a1 1 0 0 0-.6.6L6.5 12.7 5.4 9.3a1 1 0 0 0-.6-.6L1.5 7.6l3.3-1.1a1 1 0 0 0 .6-.6Z" />
           <path d="M12.5 1.5v3M11 3h3M12 11v3M10.5 12.5h3" />

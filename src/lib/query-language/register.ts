@@ -1,4 +1,5 @@
 import type * as MonacoApi from "monaco-editor";
+import { registerCompletion } from "./completion/provider";
 import { formatQuery } from "./formatter";
 import { LANGUAGE_ID, languageConfiguration, monarchLanguage } from "./grammar";
 import { themes } from "./themes";
@@ -37,6 +38,7 @@ export function registerQueryLanguage(monaco: Monaco) {
         return formatted === text ? [] : [{ range: model.getFullModelRange(), text: formatted }];
       },
     }),
+    ...registerCompletion(monaco, LANGUAGE_ID),
   ];
 
   for (const [name, data] of Object.entries(themes)) {

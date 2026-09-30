@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Копия сборки monaco-editor (scripts/copy-monaco.mjs)
     "public/monaco/**",
+    // Локальная выгрузка конфигурации для проверки загрузки метаданных (в .gitignore)
+    "zupfiles/**",
   ]),
 ]);
 
