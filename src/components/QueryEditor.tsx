@@ -32,6 +32,11 @@ export type QueryEditorHandle = {
   uncommentLines(): void;
   format(): void;
   getText(): string;
+  getSelectedText(): string;
+  /** Вставляет текст на место выделения (или в позицию курсора). */
+  insertText(text: string): void;
+  /** Заменяет весь текст; действие можно отменить через Ctrl+Z. */
+  replaceAll(text: string): void;
 };
 
 const OPTIONS: editor.IStandaloneEditorConstructionOptions = {
@@ -127,6 +132,30 @@ export function QueryEditor({
     },
     getText() {
       return editorRef.current?.getValue() ?? "";
+    },
+    getSelectedText() {
+      const instance = editorRef.current;
+      const selection = instance?.getSelection();
+      return (selection && instance?.getModel()?.getValueInRange(selection)) || "";
+    },
+    insertText(text) {
+      withEditor(editorRef.current, (instance) => {
+        const selection = instance.getSelection();
+        if (!selection) return;
+        instance.pushUndoStop();
+        instance.executeEdits("ai", [{ range: selection, text, forceMoveMarkers: true }]);
+        instance.pushUndoStop();
+      });
+    },
+    replaceAll(text) {
+      withEditor(editorRef.current, (instance) => {
+        const model = instance.getModel();
+        if (!model) return;
+        instance.pushUndoStop();
+        instance.executeEdits("ai", [{ range: model.getFullModelRange(), text }]);
+        instance.pushUndoStop();
+        instance.setPosition({ lineNumber: 1, column: 1 });
+      });
     },
   }));
 

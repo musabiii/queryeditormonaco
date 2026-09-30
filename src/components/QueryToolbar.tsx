@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import { copyToClipboard } from "@/lib/clipboard";
+import { ToolButton } from "./ToolButton";
 import type { Theme } from "@/lib/theme";
 
 type Props = {
@@ -10,6 +12,8 @@ type Props = {
   getText: () => string;
   showWhitespace: boolean;
   onToggleWhitespace: () => void;
+  aiOpen: boolean;
+  onToggleAi: () => void;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
 };
@@ -47,6 +51,13 @@ export function QueryToolbar(props: Props) {
         <Divider />
 
         <CopyButton getText={props.getText} />
+
+        <Divider />
+
+        <ToolButton label="ИИ-помощник" onClick={props.onToggleAi} pressed={props.aiOpen}>
+          <path d="M6.5 2.5 7.6 5.9a1 1 0 0 0 .6.6l3.3 1.1-3.3 1.1a1 1 0 0 0-.6.6L6.5 12.7 5.4 9.3a1 1 0 0 0-.6-.6L1.5 7.6l3.3-1.1a1 1 0 0 0 .6-.6Z" />
+          <path d="M12.5 1.5v3M11 3h3M12 11v3M10.5 12.5h3" />
+        </ToolButton>
       </div>
 
       <div className="ml-auto">
@@ -95,66 +106,6 @@ function CopyButton({ getText }: { getText: () => string }) {
         </>
       )}
     </ToolButton>
-  );
-}
-
-async function copyToClipboard(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    // Clipboard API недоступен (нет разрешения, встроенный браузер) — старый способ.
-  }
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    return document.execCommand("copy");
-  } catch {
-    return false;
-  } finally {
-    textarea.remove();
-  }
-}
-
-function ToolButton({
-  label,
-  onClick,
-  pressed,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  pressed?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      aria-pressed={pressed}
-      className={`flex size-7 items-center justify-center rounded-md hover:bg-border/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground ${
-        pressed ? "bg-border/80 text-foreground" : "text-muted"
-      }`}
-    >
-      <svg
-        viewBox="0 0 16 16"
-        className="size-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        {children}
-      </svg>
-    </button>
   );
 }
 

@@ -7,12 +7,14 @@ import { useTheme } from "@/lib/use-theme";
 import { QueryEditor, type EditorStatus, type QueryEditorHandle } from "./QueryEditor";
 import { QueryStructure } from "./QueryStructure";
 import { QueryToolbar } from "./QueryToolbar";
+import { AiPanel } from "./ai/AiPanel";
 
 export function QueryWorkbench() {
   const [theme, setTheme] = useTheme();
   const [status, setStatus] = useState<EditorStatus | null>(null);
   const [queries, setQueries] = useState<BatchQuery[]>([]);
   const [showWhitespace, setShowWhitespace] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const editorRef = useRef<QueryEditorHandle>(null);
 
   return (
@@ -24,6 +26,8 @@ export function QueryWorkbench() {
         getText={() => editorRef.current?.getText() ?? ""}
         showWhitespace={showWhitespace}
         onToggleWhitespace={() => setShowWhitespace((value) => !value)}
+        aiOpen={aiOpen}
+        onToggleAi={() => setAiOpen((value) => !value)}
         theme={theme}
         onThemeChange={setTheme}
       />
@@ -43,6 +47,16 @@ export function QueryWorkbench() {
           queries={queries}
           cursorOffset={status?.offset}
           onSelect={(query) => editorRef.current?.selectRange(query.start, query.end)}
+        />
+        <AiPanel
+          open={aiOpen}
+          onClose={() => setAiOpen(false)}
+          getContext={() => ({
+            query: editorRef.current?.getText() ?? "",
+            selection: editorRef.current?.getSelectedText() ?? "",
+          })}
+          onInsert={(text) => editorRef.current?.insertText(text)}
+          onReplaceAll={(text) => editorRef.current?.replaceAll(text)}
         />
       </main>
 
