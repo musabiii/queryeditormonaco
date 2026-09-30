@@ -16,6 +16,8 @@ type Props = {
   aiOpen: boolean;
   onToggleAi: () => void;
   onOpenConfigurations: () => void;
+  treeOpen: boolean;
+  onToggleTree: () => void;
   scheme: ColorScheme;
   onSchemeChange: (id: string) => void;
 };
@@ -26,6 +28,12 @@ export function QueryToolbar(props: Props) {
       <h1 className="mr-3 hidden shrink-0 text-sm font-semibold whitespace-nowrap sm:block">Редактор запросов 1С</h1>
 
       <div role="toolbar" aria-label="Панель инструментов" className="flex items-center gap-1">
+        <ToolButton label="Структура конфигурации" onClick={props.onToggleTree} pressed={props.treeOpen}>
+          <path d="M2.5 3h4M4.5 3v9.5M4.5 7.5h3M4.5 12.5h3M9 7.5h4.5M9 12.5h4.5" />
+        </ToolButton>
+
+        <Divider />
+
         <ToolButton label="Закомментировать (Ctrl+Num /)" onClick={props.onComment}>
           <path d="M6 2.5 3 12.5M10 2.5 7 12.5" />
           <path d="M12.5 10v5M10 12.5h5" />

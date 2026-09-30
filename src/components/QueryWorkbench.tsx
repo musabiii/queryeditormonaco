@@ -10,7 +10,9 @@ import { QueryEditor, type EditorStatus, type QueryEditorHandle } from "./QueryE
 import { QueryStructure } from "./QueryStructure";
 import { QueryToolbar } from "./QueryToolbar";
 import { AiPanel } from "./ai/AiPanel";
+import { ConfigurationTree } from "./metadata/ConfigurationTree";
 import { ConfigurationsDialog } from "./metadata/ConfigurationsDialog";
+import type { ConfigurationModel } from "@/lib/metadata/model";
 
 export function QueryWorkbench() {
   const [scheme, setScheme] = useColorScheme();
@@ -19,11 +21,12 @@ export function QueryWorkbench() {
   const [showWhitespace, setShowWhitespace] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [configurationsOpen, setConfigurationsOpen] = useState(false);
+  const [treeOpen, setTreeOpen] = useState(false);
   const configurations = useConfigurations();
   const activeConfiguration = configurations.active;
   const activeId = activeConfiguration?.id ?? null;
-  /** Для какой конфигурации модель уже подключена к автодополнению и удачно ли. */
-  const [modelState, setModelState] = useState<{ id: string; ok: boolean } | null>(null);
+  /** Модель какой конфигурации загружена (null — не удалось загрузить). */
+  const [modelState, setModelState] = useState<{ id: string; model: ConfigurationModel | null } | null>(null);
 
   // Автодополнение работает по активной конфигурации: модель берётся из IndexedDB,
   // встроенная типовая при первом выборе скачивается с сервера.
@@ -38,20 +41,21 @@ export function QueryWorkbench() {
       (model) => {
         if (!current) return;
         setCompletionMetadata(model ?? null);
-        setModelState({ id, ok: Boolean(model) });
+        setModelState({ id, model: model ?? null });
       },
       () => {
         if (!current) return;
         setCompletionMetadata(null);
-        setModelState({ id, ok: false });
+        setModelState({ id, model: null });
       },
     );
     return () => {
       current = false;
     };
   }, [activeConfiguration]);
-  const modelNote =
-    activeId && modelState?.id !== activeId ? " (загрузка…)" : modelState && !modelState.ok ? " (не удалось загрузить)" : "";
+  const modelLoading = Boolean(activeId) && modelState?.id !== activeId;
+  const activeModel = activeId && modelState?.id === activeId ? modelState.model : null;
+  const modelNote = modelLoading ? " (загрузка…)" : activeId && !activeModel ? " (не удалось загрузить)" : "";
   const editorRef = useRef<QueryEditorHandle>(null);
 
   return (
@@ -66,11 +70,21 @@ export function QueryWorkbench() {
         aiOpen={aiOpen}
         onToggleAi={() => setAiOpen((value) => !value)}
         onOpenConfigurations={() => setConfigurationsOpen(true)}
+        treeOpen={treeOpen}
+        onToggleTree={() => setTreeOpen((value) => !value)}
         scheme={scheme}
         onSchemeChange={setScheme}
       />
 
       <main className="flex min-h-0 flex-1">
+        <ConfigurationTree
+          open={treeOpen}
+          model={activeModel}
+          loading={modelLoading}
+          onInsert={(text) => editorRef.current?.insertText(text)}
+          onOpenConfigurations={() => setConfigurationsOpen(true)}
+          onClose={() => setTreeOpen(false)}
+        />
         <div className="min-w-0 flex-1">
           <QueryEditor
             ref={editorRef}
