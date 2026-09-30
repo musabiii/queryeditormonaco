@@ -22,8 +22,8 @@ export function QueryToolbar(props: Props) {
   const nextTheme = props.theme === "dark" ? "light" : "dark";
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border bg-panel px-4">
-      <h1 className="mr-3 text-sm font-semibold">Редактор запросов 1С</h1>
+    <header className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-panel px-4">
+      <h1 className="mr-3 hidden shrink-0 text-sm font-semibold whitespace-nowrap sm:block">Редактор запросов 1С</h1>
 
       <div role="toolbar" aria-label="Панель инструментов" className="flex items-center gap-1">
         <ToolButton label="Закомментировать (Ctrl+Num /)" onClick={props.onComment}>
@@ -51,16 +51,13 @@ export function QueryToolbar(props: Props) {
         <Divider />
 
         <CopyButton getText={props.getText} />
+      </div>
 
-        <Divider />
-
+      <div className="ml-auto flex items-center gap-1">
         <ToolButton label="ИИ-помощник" onClick={props.onToggleAi} pressed={props.aiOpen}>
           <path d="M6.5 2.5 7.6 5.9a1 1 0 0 0 .6.6l3.3 1.1-3.3 1.1a1 1 0 0 0-.6.6L6.5 12.7 5.4 9.3a1 1 0 0 0-.6-.6L1.5 7.6l3.3-1.1a1 1 0 0 0 .6-.6Z" />
           <path d="M12.5 1.5v3M11 3h3M12 11v3M10.5 12.5h3" />
         </ToolButton>
-      </div>
-
-      <div className="ml-auto">
         <ToolButton
           label={nextTheme === "dark" ? "Тёмная тема" : "Светлая тема"}
           onClick={() => props.onThemeChange(nextTheme)}
