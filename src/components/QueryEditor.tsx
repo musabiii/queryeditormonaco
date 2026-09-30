@@ -10,6 +10,7 @@ import {
   collectParameters,
   parseBatch,
   registerQueryLanguage,
+  unwrapBslString,
   type BatchQuery,
   type QueryParameter,
 } from "@/lib/query-language";
@@ -36,6 +37,11 @@ export type QueryEditorHandle = {
   insertText(text: string): void;
   /** Вставляет шаблон с полями для заполнения (синтаксис сниппетов Monaco). */
   insertSnippet(snippet: string): void;
+  /**
+   * Убирает оформление строкового литерала 1С (кавычки, «|», удвоенные кавычки)
+   * в выделении или во всём тексте. false — текст не похож на литерал.
+   */
+  unwrapCodeString(): boolean;
   /** Заменяет весь текст; действие можно отменить через Ctrl+Z. */
   replaceAll(text: string): void;
 };
@@ -170,6 +176,20 @@ export function QueryEditor({
         controller?.insert(snippet);
         instance.pushUndoStop();
       });
+    },
+    unwrapCodeString() {
+      const instance = editorRef.current;
+      const model = instance?.getModel();
+      const selection = instance?.getSelection();
+      if (!instance || !model || !selection) return false;
+      instance.focus();
+      const range = selection.isEmpty() ? model.getFullModelRange() : selection;
+      const text = unwrapBslString(model.getValueInRange(range));
+      if (text === null) return false;
+      instance.pushUndoStop();
+      instance.executeEdits("unwrap", [{ range, text }]);
+      instance.pushUndoStop();
+      return true;
     },
     replaceAll(text) {
       withEditor(editorRef.current, (instance) => {

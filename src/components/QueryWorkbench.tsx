@@ -65,6 +65,7 @@ export function QueryWorkbench() {
         onComment={() => editorRef.current?.commentLines()}
         onUncomment={() => editorRef.current?.uncommentLines()}
         onFormat={() => editorRef.current?.format()}
+        onUnwrap={() => editorRef.current?.unwrapCodeString() ?? false}
         getText={() => editorRef.current?.getText() ?? ""}
         showWhitespace={showWhitespace}
         onToggleWhitespace={() => setShowWhitespace((value) => !value)}

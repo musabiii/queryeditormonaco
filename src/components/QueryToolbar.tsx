@@ -10,6 +10,7 @@ type Props = {
   onComment: () => void;
   onUncomment: () => void;
   onFormat: () => void;
+  onUnwrap: () => boolean;
   getText: () => string;
   showWhitespace: boolean;
   onToggleWhitespace: () => void;
@@ -55,6 +56,7 @@ export function QueryToolbar(props: Props) {
         >
           <path d="M8 14V2.5h5M11 2.5V14M8 2.5a3 3 0 0 0 0 6" />
         </ToolButton>
+        <UnwrapButton onUnwrap={props.onUnwrap} />
 
         <Divider />
 
@@ -100,6 +102,41 @@ function CopyButton({ getText }: { getText: () => string }) {
         <>
           <rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.5" />
           <path d="M10.5 5.5V3.5A1.5 1.5 0 0 0 9 2H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5h2" />
+        </>
+      )}
+    </ToolButton>
+  );
+}
+
+/** Убирает кавычки и «|» текста запроса, скопированного из кода 1С. */
+function UnwrapButton({ onUnwrap }: { onUnwrap: () => boolean }) {
+  const [failed, setFailed] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const unwrap = () => {
+    const ok = onUnwrap();
+    setFailed(!ok);
+    clearTimeout(timer.current);
+    if (!ok) timer.current = setTimeout(() => setFailed(false), 2000);
+  };
+
+  return (
+    <ToolButton
+      label={
+        failed
+          ? "Не похоже на текст запроса из кода 1С"
+          : "Убрать оформление кода 1С: кавычки и «|» (в выделении или во всём тексте)"
+      }
+      onClick={unwrap}
+    >
+      {failed ? (
+        <path d="M8 3v6M8 12.5v.5" />
+      ) : (
+        <>
+          <path d="M3 3v2.5M5.5 3v2.5M3.5 8.5v5" />
+          <path d="m8.5 8.5 5 5m0-5-5 5M8.5 3.5h5" />
         </>
       )}
     </ToolButton>
