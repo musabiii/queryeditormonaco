@@ -54,7 +54,16 @@ const OPTIONS: editor.IStandaloneEditorConstructionOptions = {
   comments: { insertSpace: false },
   // Иначе Monaco помечает кириллические буквы, похожие на латинские.
   unicodeHighlight: { ambiguousCharacters: false },
+  // Разделители строк U+2028/U+2029 (бывают в скопированном тексте и ответах ИИ)
+  // убираем молча: по умолчанию Monaco спрашивает через блокирующий window.confirm,
+  // и страница «зависает», пока окно не закрыто.
+  unusualLineTerminators: "auto",
 };
+
+/** Все виды переводов строк, включая U+2028/U+2029 и NEL, — в обычный «\n». */
+function normalizeLineBreaks(text: string) {
+  return text.replace(/\r\n?|[\u2028\u2029\u0085]/g, "\n");
+}
 
 function withEditor(
   instance: editor.IStandaloneCodeEditor | null,
@@ -141,7 +150,7 @@ export function QueryEditor({
         const selection = instance.getSelection();
         if (!selection) return;
         instance.pushUndoStop();
-        instance.executeEdits("ai", [{ range: selection, text, forceMoveMarkers: true }]);
+        instance.executeEdits("ai", [{ range: selection, text: normalizeLineBreaks(text), forceMoveMarkers: true }]);
         instance.pushUndoStop();
       });
     },
@@ -150,7 +159,7 @@ export function QueryEditor({
         const model = instance.getModel();
         if (!model) return;
         instance.pushUndoStop();
-        instance.executeEdits("ai", [{ range: model.getFullModelRange(), text }]);
+        instance.executeEdits("ai", [{ range: model.getFullModelRange(), text: normalizeLineBreaks(text) }]);
         instance.pushUndoStop();
         instance.setPosition({ lineNumber: 1, column: 1 });
       });
