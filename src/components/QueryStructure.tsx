@@ -30,7 +30,7 @@ type Props = {
 const PANEL_SECTION = "flex min-h-0 flex-1 basis-0 flex-col";
 
 const HEADING =
-  "flex h-8 shrink-0 items-center justify-between border-b border-border px-3 text-xs font-semibold tracking-wide text-muted uppercase";
+  "flex h-8 shrink-0 items-center justify-between border-b border-border bg-panel-header px-3 text-xs font-semibold tracking-wide text-muted uppercase";
 
 /**
  * Список запросов пакета, как на вкладке «Пакет запросов» конструктора 1С,

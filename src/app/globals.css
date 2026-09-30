@@ -8,13 +8,20 @@
   --border: #d0d7de;
   --muted: #59636e;
   --danger: #cf222e;
+  /* Заголовки блоков панелей — темнее фона панели в любой схеме. */
+  --panel-header: color-mix(in srgb, var(--panel) 90%, black);
   color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --panel-header: color-mix(in srgb, var(--panel) 70%, black);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-panel: var(--panel);
+  --color-panel-header: var(--panel-header);
   --color-border: var(--border);
   --color-muted: var(--muted);
   --color-danger: var(--danger);

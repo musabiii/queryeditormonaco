@@ -53,7 +53,7 @@ export function QueryFunctions({ onInsert, className = "" }: Props) {
     <section aria-labelledby="query-functions" className={`${className} border-t border-border`}>
       <h2
         id="query-functions"
-        className="flex h-8 shrink-0 items-center border-b border-border px-3 text-xs font-semibold tracking-wide text-muted uppercase"
+        className="flex h-8 shrink-0 items-center border-b border-border bg-panel-header px-3 text-xs font-semibold tracking-wide text-muted uppercase"
       >
         Функции языка запросов
       </h2>
