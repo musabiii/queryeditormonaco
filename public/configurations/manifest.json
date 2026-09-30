@@ -29,5 +29,34 @@
       "parseSeconds": 4.4952392
     },
     "builtinFile": "zup-3.1.20.97.json.gz"
+  },
+  {
+    "id": "builtin:medicine@2.0.16.1",
+    "name": "МедицинаБольница",
+    "synonym": "Медицина. Больница, редакция 2.0",
+    "version": "2.0.16.1",
+    "vendor": "ООО «Информатика медицины»",
+    "loadedAt": "2026-09-30T22:50:19.480Z",
+    "counts": {
+      "Catalog": 530,
+      "Document": 167,
+      "DocumentJournal": 9,
+      "Enum": 460,
+      "ChartOfCharacteristicTypes": 18,
+      "InformationRegister": 612,
+      "AccumulationRegister": 16,
+      "BusinessProcess": 3,
+      "Task": 1,
+      "ExchangePlan": 13,
+      "Constant": 519,
+      "FilterCriterion": 2
+    },
+    "stats": {
+      "modelBytes": 2858163,
+      "sourceBytes": 44920077,
+      "sourceFiles": 2499,
+      "parseSeconds": 3.3644279999999998
+    },
+    "builtinFile": "medicine-2.0.16.1.json.gz"
   }
 ]

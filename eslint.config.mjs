@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     "public/monaco/**",
     // Локальная выгрузка конфигурации для проверки загрузки метаданных (в .gitignore)
     "zupfiles/**",
+    "medicine/**",
   ]),
 ]);
 
