@@ -31,6 +31,8 @@ function toMonacoTheme({ kind, editor: colors, tokens }: ColorScheme): editor.IS
         foreground: hex(tokens[role]),
         ...(italic.has(role) ? { fontStyle: "italic" } : {}),
       })),
+      // Имя временной таблицы после ПОМЕСТИТЬ.
+      { token: "identifier.temptable", foreground: hex(tokens.identifier), fontStyle: "bold" },
     ],
     colors: {
       "editor.background": colors.background,

@@ -68,6 +68,9 @@ export const AS_KEYWORDS: readonly WordPair[] = [["КАК", "AS"]];
 /** «ССЫЛКА» совпадает с именем стандартного реквизита, поэтому токенизатор разбирает его отдельно. */
 export const REFS_OPERATOR: WordPair = ["ССЫЛКА", "REFS"];
 
+/** После него — имя временной таблицы (входит и в KEYWORDS). */
+export const INTO_KEYWORD: WordPair = ["ПОМЕСТИТЬ", "INTO"];
+
 /** Логические операторы и операторы сравнения, записываемые словами. */
 export const WORD_OPERATORS: readonly WordPair[] = [
   ["И", "AND"],

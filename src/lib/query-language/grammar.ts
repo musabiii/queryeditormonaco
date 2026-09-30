@@ -3,6 +3,7 @@ import {
   AS_KEYWORDS,
   CONSTANTS,
   FUNCTIONS,
+  INTO_KEYWORD,
   KEYWORDS,
   METADATA_ROOTS,
   PERIODS,
@@ -40,6 +41,7 @@ export const languageConfiguration: languages.LanguageConfiguration = {
  * Токенизатор Monarch. Контекст учитывается там, где это важно для подсветки:
  * - после точки идёт имя поля/таблицы, а не ключевое слово (Док.Ссылка, Т.Количество);
  * - после КАК идёт псевдоним или тип (КАК Количество, КАК ЧИСЛО(15, 2));
+ * - после ПОМЕСТИТЬ идёт имя временной таблицы — оно выделяется жирным;
  * - имя функции подсвечивается только перед скобкой (СУММА(...), но не поле Сумма).
  */
 export const monarchLanguage: languages.IMonarchLanguage = {
@@ -52,6 +54,7 @@ export const monarchLanguage: languages.IMonarchLanguage = {
   asKeywords: spellings(AS_KEYWORDS),
   wordOperators: spellings(WORD_OPERATORS),
   refsOperator: spellings([REFS_OPERATOR]),
+  intoKeyword: spellings([INTO_KEYWORD]),
   constants: spellings(CONSTANTS),
   functions: spellings(FUNCTIONS),
   periods: spellings(PERIODS),
@@ -107,6 +110,7 @@ export const monarchLanguage: languages.IMonarchLanguage = {
         {
           cases: {
             "@asKeywords": { token: "keyword", next: "@alias" },
+            "@intoKeyword": { token: "keyword", next: "@tempTable" },
             "@refsOperator": "identifier",
             "@keywords": "keyword",
             "@wordOperators": "keyword.operator",
@@ -146,6 +150,13 @@ export const monarchLanguage: languages.IMonarchLanguage = {
           },
         },
       ],
+      [/(?=.)/, "", "@pop"],
+    ],
+
+    // Имя после ПОМЕСТИТЬ: временная таблица.
+    tempTable: [
+      { include: "@whitespace" },
+      [/@ident/, "identifier.temptable", "@pop"],
       [/(?=.)/, "", "@pop"],
     ],
 
