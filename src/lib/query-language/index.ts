@@ -10,6 +10,6 @@ export {
   type CatalogItem,
 } from "./function-catalog";
 export { formatQuery } from "./formatter";
-export { unwrapBslString } from "./bsl-string";
+export { bslQueryCode, unwrapBslString } from "./bsl-string";
 export { setCompletionMetadata } from "./completion/provider";
 export { MetadataIndex, type TableField } from "./completion/metadata-index";

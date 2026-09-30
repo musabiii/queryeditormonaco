@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { setCompletionMetadata, type BatchQuery, type QueryParameter } from "@/lib/query-language";
+import { bslQueryCode, setCompletionMetadata, type BatchQuery, type QueryParameter } from "@/lib/query-language";
 import { loadModel } from "@/lib/metadata/builtin";
 import { SAMPLE_QUERY } from "@/lib/sample-query";
 import { useConfigurations } from "@/lib/metadata/use-configurations";
@@ -10,6 +10,7 @@ import { QueryEditor, type EditorStatus, type QueryEditorHandle } from "./QueryE
 import { QueryStructure } from "./QueryStructure";
 import { QueryToolbar } from "./QueryToolbar";
 import { AiPanel } from "./ai/AiPanel";
+import { BslCodeDialog } from "./BslCodeDialog";
 import { ConfigurationTree } from "./metadata/ConfigurationTree";
 import { ConfigurationsDialog } from "./metadata/ConfigurationsDialog";
 import type { ConfigurationModel } from "@/lib/metadata/model";
@@ -23,6 +24,8 @@ export function QueryWorkbench() {
   const [aiOpen, setAiOpen] = useState(false);
   const [configurationsOpen, setConfigurationsOpen] = useState(false);
   const [treeOpen, setTreeOpen] = useState(false);
+  /** Код 1С для окна «Текст для кода 1С»; null — окно закрыто. */
+  const [bslCode, setBslCode] = useState<string | null>(null);
   const configurations = useConfigurations();
   const activeConfiguration = configurations.active;
   const activeId = activeConfiguration?.id ?? null;
@@ -66,6 +69,10 @@ export function QueryWorkbench() {
         onUncomment={() => editorRef.current?.uncommentLines()}
         onFormat={() => editorRef.current?.format()}
         onUnwrap={() => editorRef.current?.unwrapCodeString() ?? false}
+        onShowBslCode={() => {
+          const editor = editorRef.current;
+          if (editor) setBslCode(bslQueryCode(editor.getSelectedText() || editor.getText()));
+        }}
         getText={() => editorRef.current?.getText() ?? ""}
         showWhitespace={showWhitespace}
         onToggleWhitespace={() => setShowWhitespace((value) => !value)}
@@ -140,6 +147,8 @@ export function QueryWorkbench() {
         </button>
         <span>Язык запросов 1С</span>
       </footer>
+
+      {bslCode !== null && <BslCodeDialog code={bslCode} onClose={() => setBslCode(null)} />}
 
       {configurationsOpen && (
         <ConfigurationsDialog configurations={configurations} onClose={() => setConfigurationsOpen(false)} />

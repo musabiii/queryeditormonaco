@@ -11,6 +11,7 @@ type Props = {
   onUncomment: () => void;
   onFormat: () => void;
   onUnwrap: () => boolean;
+  onShowBslCode: () => void;
   getText: () => string;
   showWhitespace: boolean;
   onToggleWhitespace: () => void;
@@ -57,6 +58,9 @@ export function QueryToolbar(props: Props) {
           <path d="M8 14V2.5h5M11 2.5V14M8 2.5a3 3 0 0 0 0 6" />
         </ToolButton>
         <UnwrapButton onUnwrap={props.onUnwrap} />
+        <ToolButton label="Текст для кода 1С: запрос с параметрами и обходом выборки" onClick={props.onShowBslCode}>
+          <path d="M5 3.5 1.5 8 5 12.5M11 3.5 14.5 8 11 12.5M9.5 2.5l-3 11" />
+        </ToolButton>
 
         <Divider />
 
