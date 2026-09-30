@@ -5,6 +5,8 @@
  * комментариев и подзапросов.
  */
 
+import { tokenize, type Token } from "./lexer";
+
 export type BatchQueryKind = "select" | "temp-table" | "drop";
 
 export type BatchQuery = {
@@ -17,11 +19,6 @@ export type BatchQuery = {
   start: number;
   end: number;
 };
-
-type Token = { kind: "word" | "symbol"; text: string; start: number; end: number };
-
-const WORD_START = /[\p{L}_]/u;
-const WORD_PART = /[\p{L}\p{N}_]/u;
 
 const INTO = new Set(["ПОМЕСТИТЬ", "INTO"]);
 const DROP = new Set(["УНИЧТОЖИТЬ", "DROP"]);
@@ -36,6 +33,7 @@ export function parseBatch(text: string): BatchQuery[] {
   };
 
   for (const token of tokenize(text)) {
+    if (token.kind === "comment") continue;
     if (token.kind === "symbol" && token.text === ";") flush();
     else current.push(token);
   }
@@ -69,42 +67,6 @@ function describe(tokens: Token[], index: number): BatchQuery {
   }
 
   return { ...range, kind: "select" };
-}
-
-/** Лексемы без пробелов, комментариев и содержимого строк (строка — одна лексема). */
-function* tokenize(text: string): Generator<Token> {
-  let i = 0;
-  while (i < text.length) {
-    const ch = text[i];
-
-    if (ch === "/" && text[i + 1] === "/") {
-      const lineEnd = text.indexOf("\n", i);
-      i = lineEnd < 0 ? text.length : lineEnd;
-      continue;
-    }
-
-    if (ch === '"') {
-      const start = i++;
-      while (i < text.length) {
-        if (text[i] === '"' && text[i + 1] === '"') i += 2;
-        else if (text[i++] === '"') break;
-      }
-      yield { kind: "symbol", text: '"', start, end: i };
-      continue;
-    }
-
-    if (WORD_START.test(ch)) {
-      const start = i++;
-      while (i < text.length && WORD_PART.test(text[i])) i++;
-      yield { kind: "word", text: text.slice(start, i), start, end: i };
-      continue;
-    }
-
-    if (!/\s/.test(ch)) {
-      yield { kind: "symbol", text: ch, start: i, end: i + 1 };
-    }
-    i++;
-  }
 }
 
 /** Название запроса так, как его показывает конструктор запросов. */
