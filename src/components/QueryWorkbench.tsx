@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type { BatchQuery } from "@/lib/query-language";
 import { SAMPLE_QUERY } from "@/lib/sample-query";
 import type { Theme } from "@/lib/theme";
 import { useTheme } from "@/lib/use-theme";
-import { QueryEditor, type EditorStatus } from "./QueryEditor";
+import { QueryEditor, type EditorStatus, type QueryEditorHandle } from "./QueryEditor";
+import { QueryStructure } from "./QueryStructure";
 
 export function QueryWorkbench() {
   const [theme, setTheme] = useTheme();
   const [status, setStatus] = useState<EditorStatus | null>(null);
+  const [queries, setQueries] = useState<BatchQuery[]>([]);
+  const editorRef = useRef<QueryEditorHandle>(null);
 
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
@@ -17,8 +21,21 @@ export function QueryWorkbench() {
         <ThemeToggle theme={theme} onChange={setTheme} />
       </header>
 
-      <main className="min-h-0 flex-1">
-        <QueryEditor defaultValue={SAMPLE_QUERY} theme={theme} onStatusChange={setStatus} />
+      <main className="flex min-h-0 flex-1">
+        <div className="min-w-0 flex-1">
+          <QueryEditor
+            ref={editorRef}
+            defaultValue={SAMPLE_QUERY}
+            theme={theme}
+            onStatusChange={setStatus}
+            onBatchChange={setQueries}
+          />
+        </div>
+        <QueryStructure
+          queries={queries}
+          cursorOffset={status?.offset}
+          onSelect={(query) => editorRef.current?.selectRange(query.start, query.end)}
+        />
       </main>
 
       <footer className="flex h-6 shrink-0 items-center gap-4 border-t border-border bg-panel px-4 text-xs text-muted">

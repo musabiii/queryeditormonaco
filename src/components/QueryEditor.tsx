@@ -2,22 +2,31 @@
 
 import Editor, { type OnMount } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
-import { useEffect, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { loadMonaco } from "@/lib/monaco-loader";
 import {
   DARK_THEME,
   LANGUAGE_ID,
   LIGHT_THEME,
+  parseBatch,
   registerQueryLanguage,
+  type BatchQuery,
 } from "@/lib/query-language";
 import type { Theme } from "@/lib/theme";
 
 export type EditorStatus = {
   line: number;
   column: number;
+  /** Смещение курсора от начала текста. */
+  offset: number;
   /** Количество выделенных символов. */
   selected: number;
   lineCount: number;
+};
+
+export type QueryEditorHandle = {
+  /** Выделяет фрагмент текста по смещениям и прокручивает к нему. */
+  selectRange(start: number, end: number): void;
 };
 
 const OPTIONS: editor.IStandaloneEditorConstructionOptions = {
@@ -31,6 +40,8 @@ const OPTIONS: editor.IStandaloneEditorConstructionOptions = {
   renderWhitespace: "selection",
   smoothScrolling: true,
   padding: { top: 8 },
+  // Вместо миникарты справа — панель структуры запроса.
+  minimap: { enabled: false },
   fixedOverflowWidgets: true,
   // Иначе Monaco помечает кириллические буквы, похожие на латинские.
   unicodeHighlight: { ambiguousCharacters: false },
@@ -40,9 +51,12 @@ type Props = {
   defaultValue: string;
   theme: Theme;
   onStatusChange?: (status: EditorStatus) => void;
+  onBatchChange?: (queries: BatchQuery[]) => void;
+  ref?: Ref<QueryEditorHandle>;
 };
 
-export function QueryEditor({ defaultValue, theme, onStatusChange }: Props) {
+export function QueryEditor({ defaultValue, theme, onStatusChange, onBatchChange, ref }: Props) {
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const [monacoState, setMonacoState] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
@@ -56,25 +70,58 @@ export function QueryEditor({ defaultValue, theme, onStatusChange }: Props) {
     };
   }, []);
 
-  const handleMount: OnMount = (instance) => {
-    instance.focus();
-    if (!onStatusChange) return;
+  useImperativeHandle(ref, () => ({
+    selectRange(start, end) {
+      const instance = editorRef.current;
+      const model = instance?.getModel();
+      if (!instance || !model) return;
+      const from = model.getPositionAt(start);
+      const to = model.getPositionAt(end);
+      const range = {
+        startLineNumber: from.lineNumber,
+        startColumn: from.column,
+        endLineNumber: to.lineNumber,
+        endColumn: to.column,
+      };
+      instance.setSelection(range);
+      instance.revealRangeNearTopIfOutsideViewport(range);
+      instance.focus();
+    },
+  }));
 
-    const report = () => {
+  const handleMount: OnMount = (instance) => {
+    editorRef.current = instance;
+    instance.onDidDispose(() => {
+      editorRef.current = null;
+    });
+    instance.focus();
+
+    const reportStatus = () => {
       const model = instance.getModel();
       const selection = instance.getSelection();
-      if (!model || !selection) return;
+      if (!model || !selection || !onStatusChange) return;
+      const position = selection.getPosition();
       onStatusChange({
-        line: selection.positionLineNumber,
-        column: selection.positionColumn,
+        line: position.lineNumber,
+        column: position.column,
+        offset: model.getOffsetAt(position),
         selected: model.getValueLengthInRange(selection),
         lineCount: model.getLineCount(),
       });
     };
 
-    instance.onDidChangeCursorSelection(report);
-    instance.onDidChangeModelContent(report);
-    report();
+    const reportBatch = () => {
+      const model = instance.getModel();
+      if (model && onBatchChange) onBatchChange(parseBatch(model.getValue()));
+    };
+
+    instance.onDidChangeCursorSelection(reportStatus);
+    instance.onDidChangeModelContent(() => {
+      reportBatch();
+      reportStatus();
+    });
+    reportBatch();
+    reportStatus();
   };
 
   if (monacoState !== "ready") {
