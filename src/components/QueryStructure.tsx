@@ -6,6 +6,7 @@ import {
   type BatchQueryKind,
   type QueryParameter,
 } from "@/lib/query-language";
+import { QueryFunctions } from "./QueryFunctions";
 
 const KIND_LABEL: Record<BatchQueryKind, string> = {
   select: "Запрос выборки",
@@ -21,55 +22,63 @@ type Props = {
   parameters: QueryParameter[];
   /** Выделяет вхождение параметра в тексте. */
   onSelectRange: (start: number, end: number) => void;
+  /** Вставка шаблона из дерева функций. */
+  onInsertSnippet: (snippet: string) => void;
 };
+
+/** Три блока панели делят высоту поровну, каждый прокручивается сам. */
+const PANEL_SECTION = "flex min-h-0 flex-1 basis-0 flex-col";
 
 const HEADING =
   "flex h-8 shrink-0 items-center justify-between border-b border-border px-3 text-xs font-semibold tracking-wide text-muted uppercase";
 
 /**
  * Список запросов пакета, как на вкладке «Пакет запросов» конструктора 1С,
- * а под ним — параметры запроса.
+ * под ним — параметры запроса и дерево функций языка запросов.
  */
-export function QueryStructure({ queries, cursorOffset, onSelect, parameters, onSelectRange }: Props) {
+export function QueryStructure({ queries, cursorOffset, onSelect, parameters, onSelectRange, onInsertSnippet }: Props) {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-l border-border bg-panel md:flex">
-      <h2 className={HEADING}>
-        Структура запроса
-        {queries.length > 0 && <span className="font-normal normal-case">{queries.length}</span>}
-      </h2>
+      <section aria-labelledby="query-structure" className={PANEL_SECTION}>
+        <h2 id="query-structure" className={HEADING}>
+          Структура запроса
+          {queries.length > 0 && <span className="font-normal normal-case">{queries.length}</span>}
+        </h2>
 
-      {queries.length === 0 ? (
-        <p className="flex-1 p-3 text-sm text-muted">Запрос пуст</p>
-      ) : (
-        <ol className="min-h-0 flex-1 overflow-y-auto py-1">
-          {queries.map((query) => {
-            const active =
-              cursorOffset !== undefined && cursorOffset >= query.start && cursorOffset <= query.end;
-            // Жирным — то, что участвует в результате: запросы пакета и используемые временные таблицы.
-            const bold = query.kind === "select" || (query.kind === "temp-table" && query.used);
-            return (
-              <li key={`${query.index}-${query.start}`}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(query)}
-                  title={query.kind === "temp-table" && !query.used ? `${KIND_LABEL[query.kind]} — не используется` : KIND_LABEL[query.kind]}
-                  aria-current={active ? "true" : undefined}
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-border/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground ${
-                    active ? "bg-border/80" : ""
-                  }`}
-                >
-                  <KindIcon kind={query.kind} />
-                  <span className={`truncate ${bold ? "font-semibold" : ""} ${query.kind === "drop" ? "text-muted" : ""}`}>
-                    {batchQueryTitle(query)}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      )}
+        {queries.length === 0 ? (
+          <p className="p-3 text-sm text-muted">Запрос пуст</p>
+        ) : (
+          <ol className="min-h-0 overflow-y-auto py-1">
+            {queries.map((query) => {
+              const active =
+                cursorOffset !== undefined && cursorOffset >= query.start && cursorOffset <= query.end;
+              // Жирным — то, что участвует в результате: запросы пакета и используемые временные таблицы.
+              const bold = query.kind === "select" || (query.kind === "temp-table" && query.used);
+              return (
+                <li key={`${query.index}-${query.start}`}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(query)}
+                    title={query.kind === "temp-table" && !query.used ? `${KIND_LABEL[query.kind]} — не используется` : KIND_LABEL[query.kind]}
+                    aria-current={active ? "true" : undefined}
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-border/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground ${
+                      active ? "bg-border/80" : ""
+                    }`}
+                  >
+                    <KindIcon kind={query.kind} />
+                    <span className={`truncate ${bold ? "font-semibold" : ""} ${query.kind === "drop" ? "text-muted" : ""}`}>
+                      {batchQueryTitle(query)}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
 
       <QueryParameters parameters={parameters} cursorOffset={cursorOffset} onSelectRange={onSelectRange} />
+      <QueryFunctions onInsert={onInsertSnippet} className={PANEL_SECTION} />
     </aside>
   );
 }
@@ -88,7 +97,7 @@ function QueryParameters(props: {
   };
 
   return (
-    <section aria-labelledby="query-parameters" className="flex max-h-[40%] shrink-0 flex-col border-t border-border">
+    <section aria-labelledby="query-parameters" className={`${PANEL_SECTION} border-t border-border`}>
       <h2 id="query-parameters" className={HEADING}>
         Параметры
         {parameters.length > 0 && <span className="font-normal normal-case">{parameters.length}</span>}

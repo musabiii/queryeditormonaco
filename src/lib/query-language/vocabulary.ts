@@ -118,7 +118,8 @@ export const FUNCTIONS: readonly WordPair[] = [
   ["ДАТАВРЕМЯ", "DATETIME"],
   // Работа со строками
   ["ПОДСТРОКА", "SUBSTRING"],
-  ["СТРДЛИНА", "STRINGLENGTH"],
+  ["СТРОКА", "STRING"],
+  ["ДЛИНАСТРОКИ", "STRINGLENGTH"],
   ["СОКРЛ", "TRIML"],
   ["СОКРП", "TRIMR"],
   ["СОКРЛП", "TRIMALL"],

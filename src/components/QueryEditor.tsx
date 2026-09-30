@@ -34,6 +34,8 @@ export type QueryEditorHandle = {
   getSelectedText(): string;
   /** Вставляет текст на место выделения (или в позицию курсора). */
   insertText(text: string): void;
+  /** Вставляет шаблон с полями для заполнения (синтаксис сниппетов Monaco). */
+  insertSnippet(snippet: string): void;
   /** Заменяет весь текст; действие можно отменить через Ctrl+Z. */
   replaceAll(text: string): void;
 };
@@ -155,6 +157,17 @@ export function QueryEditor({
         if (!selection) return;
         instance.pushUndoStop();
         instance.executeEdits("ai", [{ range: selection, text: normalizeLineBreaks(text), forceMoveMarkers: true }]);
+        instance.pushUndoStop();
+      });
+    },
+    insertSnippet(snippet) {
+      withEditor(editorRef.current, (instance) => {
+        // Контроллер сниппетов Monaco не входит в публичные типы.
+        const controller = instance.getContribution("snippetController2") as unknown as
+          | { insert(template: string): void }
+          | null;
+        instance.pushUndoStop();
+        controller?.insert(snippet);
         instance.pushUndoStop();
       });
     },

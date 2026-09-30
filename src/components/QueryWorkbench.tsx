@@ -103,6 +103,7 @@ export function QueryWorkbench() {
           onSelect={(query) => editorRef.current?.selectRange(query.start, query.end)}
           parameters={parameters}
           onSelectRange={(start, end) => editorRef.current?.selectRange(start, end)}
+          onInsertSnippet={(snippet) => editorRef.current?.insertSnippet(snippet)}
         />
         <AiPanel
           open={aiOpen}
