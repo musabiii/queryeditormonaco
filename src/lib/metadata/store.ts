@@ -4,7 +4,7 @@
  * не читал мегабайты метаданных.
  */
 
-import { summarize, type ConfigurationModel, type ConfigurationSummary } from "./model";
+import { summarize, type ConfigurationModel, type ConfigurationSummary, type ImportStats } from "./model";
 
 const DB_NAME = "query-editor";
 const DB_VERSION = 1;
@@ -59,14 +59,38 @@ export async function loadConfiguration(id: string): Promise<ConfigurationModel 
 }
 
 /** Сохраняет модель; конфигурация с тем же идентификатором заменяется. */
-export async function saveConfiguration(model: ConfigurationModel): Promise<ConfigurationSummary> {
+export async function saveConfiguration(
+  model: ConfigurationModel,
+  stats?: ImportStats,
+): Promise<ConfigurationSummary> {
   const db = await openDb();
-  const summary = summarize(model);
+  const summary = summarize(model, stats);
   const transaction = db.transaction([MODELS, SUMMARIES], "readwrite");
   transaction.objectStore(MODELS).put(model);
   transaction.objectStore(SUMMARIES).put(summary);
   await transactionDone(transaction);
   return summary;
+}
+
+/** Кэш модели встроенной конфигурации: только модель, без записи в список пользователя. */
+export async function cacheModel(model: ConfigurationModel): Promise<void> {
+  const db = await openDb();
+  const transaction = db.transaction(MODELS, "readwrite");
+  transaction.objectStore(MODELS).put(model);
+  await transactionDone(transaction);
+}
+
+/** Удаляет кэш моделей, которых нет ни в списке пользователя, ни среди встроенных. */
+export async function pruneModels(keep: Set<string>): Promise<void> {
+  const db = await openDb();
+  const summaryIds = await requestResult(db.transaction(SUMMARIES).objectStore(SUMMARIES).getAllKeys());
+  const modelIds = await requestResult(db.transaction(MODELS).objectStore(MODELS).getAllKeys());
+  const used = new Set([...keep, ...summaryIds.map(String)]);
+  const stale = modelIds.map(String).filter((id) => !used.has(id));
+  if (!stale.length) return;
+  const transaction = db.transaction(MODELS, "readwrite");
+  for (const id of stale) transaction.objectStore(MODELS).delete(id);
+  await transactionDone(transaction);
 }
 
 export async function deleteConfiguration(id: string): Promise<void> {

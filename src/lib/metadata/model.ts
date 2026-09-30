@@ -107,6 +107,16 @@ export type ConfigurationModel = {
   objects: MdObject[];
 };
 
+/** Сведения о загрузке: размеры и время разбора. */
+export type ImportStats = {
+  /** Размер модели в JSON (UTF-8), байт. */
+  modelBytes: number;
+  /** Суммарный размер прочитанных XML-файлов, байт. */
+  sourceBytes: number;
+  sourceFiles: number;
+  parseSeconds: number;
+};
+
 /** Краткие сведения для списка конфигураций — без загрузки всей модели. */
 export type ConfigurationSummary = {
   id: string;
@@ -116,11 +126,18 @@ export type ConfigurationSummary = {
   vendor?: string;
   loadedAt: string;
   counts: Partial<Record<MdKind, number>>;
+  /** Нет у конфигураций, загруженных до появления этих сведений. */
+  stats?: ImportStats;
+  /**
+   * Файл встроенной типовой конфигурации в public/configurations (собирается
+   * скриптом scripts/build-configuration.ts). У загруженных пользователем — нет.
+   */
+  builtinFile?: string;
 };
 
-export function summarize(model: ConfigurationModel): ConfigurationSummary {
+export function summarize(model: ConfigurationModel, stats?: ImportStats): ConfigurationSummary {
   const counts: Partial<Record<MdKind, number>> = {};
   for (const object of model.objects) counts[object.kind] = (counts[object.kind] ?? 0) + 1;
   const { id, name, synonym, version, vendor, loadedAt } = model;
-  return { id, name, synonym, version, vendor, loadedAt, counts };
+  return { id, name, synonym, version, vendor, loadedAt, counts, ...(stats ? { stats } : {}) };
 }

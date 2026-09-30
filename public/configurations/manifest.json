@@ -1,0 +1,33 @@
+[
+  {
+    "id": "builtin:zup@3.1.20.97",
+    "name": "ЗарплатаИУправлениеПерсоналом",
+    "synonym": "Зарплата и управление персоналом, редакция 3.1",
+    "version": "3.1.20.97",
+    "vendor": "Фирма \"1С\"",
+    "loadedAt": "2026-09-30T20:03:13.171Z",
+    "counts": {
+      "Catalog": 430,
+      "Document": 203,
+      "DocumentJournal": 34,
+      "Enum": 419,
+      "ChartOfCharacteristicTypes": 7,
+      "ChartOfCalculationTypes": 2,
+      "InformationRegister": 649,
+      "AccumulationRegister": 60,
+      "CalculationRegister": 2,
+      "BusinessProcess": 11,
+      "Task": 1,
+      "ExchangePlan": 8,
+      "Constant": 287,
+      "FilterCriterion": 2
+    },
+    "stats": {
+      "modelBytes": 5407485,
+      "sourceBytes": 68296809,
+      "sourceFiles": 2275,
+      "parseSeconds": 4.4952392
+    },
+    "builtinFile": "zup-3.1.20.97.json.gz"
+  }
+]

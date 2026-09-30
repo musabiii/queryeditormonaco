@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { setCompletionMetadata, type BatchQuery } from "@/lib/query-language";
-import { loadConfiguration } from "@/lib/metadata/store";
+import { loadModel } from "@/lib/metadata/builtin";
 import { SAMPLE_QUERY } from "@/lib/sample-query";
 import { useConfigurations } from "@/lib/metadata/use-configurations";
 import { useColorScheme } from "@/lib/use-theme";
@@ -22,22 +22,36 @@ export function QueryWorkbench() {
   const configurations = useConfigurations();
   const activeConfiguration = configurations.active;
   const activeId = activeConfiguration?.id ?? null;
+  /** Для какой конфигурации модель уже подключена к автодополнению и удачно ли. */
+  const [modelState, setModelState] = useState<{ id: string; ok: boolean } | null>(null);
 
-  // Автодополнение работает по активной конфигурации: модель читается из IndexedDB.
+  // Автодополнение работает по активной конфигурации: модель берётся из IndexedDB,
+  // встроенная типовая при первом выборе скачивается с сервера.
   useEffect(() => {
-    if (!activeId) {
+    if (!activeConfiguration) {
       setCompletionMetadata(null);
       return;
     }
     let current = true;
-    loadConfiguration(activeId).then(
-      (model) => current && setCompletionMetadata(model ?? null),
-      () => current && setCompletionMetadata(null),
+    const { id } = activeConfiguration;
+    loadModel(activeConfiguration).then(
+      (model) => {
+        if (!current) return;
+        setCompletionMetadata(model ?? null);
+        setModelState({ id, ok: Boolean(model) });
+      },
+      () => {
+        if (!current) return;
+        setCompletionMetadata(null);
+        setModelState({ id, ok: false });
+      },
     );
     return () => {
       current = false;
     };
-  }, [activeId]);
+  }, [activeConfiguration]);
+  const modelNote =
+    activeId && modelState?.id !== activeId ? " (загрузка…)" : modelState && !modelState.ok ? " (не удалось загрузить)" : "";
   const editorRef = useRef<QueryEditorHandle>(null);
 
   return (
@@ -101,7 +115,7 @@ export function QueryWorkbench() {
           className="ml-auto truncate hover:text-foreground"
         >
           {activeConfiguration
-            ? `Конфигурация: ${activeConfiguration.synonym ?? activeConfiguration.name}${activeConfiguration.version ? " " + activeConfiguration.version : ""}`
+            ? `Конфигурация: ${activeConfiguration.synonym ?? activeConfiguration.name}${activeConfiguration.version ? " " + activeConfiguration.version : ""}${modelNote}`
             : "Конфигурация не загружена"}
         </button>
         <span>Язык запросов 1С</span>

@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { fetchBuiltinConfigurations } from "./builtin";
 import { importDump } from "./import-dump";
 import type { ConfigurationSummary } from "./model";
 import { pickDumpDirectory, selectionFromFileList, type DumpSelection } from "./pick-dump";
-import { deleteConfiguration, listConfigurations, saveConfiguration } from "./store";
+import { deleteConfiguration, listConfigurations, pruneModels, saveConfiguration } from "./store";
 
 export type ImportState =
   | { status: "idle" }
@@ -52,6 +53,8 @@ export function useConfigurations() {
   /** null — список ещё читается из хранилища. */
   const [summaries, setSummaries] = useState<ConfigurationSummary[] | null>(null);
   const [storageError, setStorageError] = useState<string | null>(null);
+  /** Встроенные типовые конфигурации (public/configurations/manifest.json). */
+  const [builtins, setBuiltins] = useState<ConfigurationSummary[]>([]);
   const [importState, setImportState] = useState<ImportState>({ status: "idle" });
   const activeId = useSyncExternalStore(subscribeActive, readActive, () => null);
 
@@ -80,6 +83,23 @@ export function useConfigurations() {
     };
   }, [showList, showStorageError]);
 
+  useEffect(() => {
+    let active = true;
+    fetchBuiltinConfigurations()
+      .then((list) => {
+        if (!active) return;
+        setBuiltins(list);
+        // Кэш прежних версий встроенных конфигураций больше не нужен.
+        return pruneModels(new Set(list.map((item) => item.id)));
+      })
+      .catch(() => {
+        // Без встроенных конфигураций редактор работает как раньше.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const runImport = useCallback(
     async (select: () => Promise<DumpSelection | null>) => {
       setImportState({ status: "reading" });
@@ -100,7 +120,12 @@ export function useConfigurations() {
         );
 
         setImportState({ status: "saving" });
-        const summary = await saveConfiguration(model);
+        const summary = await saveConfiguration(model, {
+          modelBytes: new Blob([JSON.stringify(model)]).size,
+          sourceBytes: selection.files.reduce((sum, { file }) => sum + file.size, selection.configuration.size),
+          sourceFiles: selection.files.length + 1,
+          parseSeconds: (performance.now() - started) / 1000,
+        });
         writeActive(summary.id);
         await refresh();
         setImportState({
@@ -131,9 +156,13 @@ export function useConfigurations() {
     [refresh],
   );
 
-  const active = summaries?.find((summary) => summary.id === activeId) ?? null;
+  const active =
+    builtins.find((summary) => summary.id === activeId) ??
+    summaries?.find((summary) => summary.id === activeId) ??
+    null;
 
   return {
+    builtins,
     summaries,
     storageError,
     active,

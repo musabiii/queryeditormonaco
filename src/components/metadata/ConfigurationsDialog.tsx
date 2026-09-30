@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MD_KINDS, type ConfigurationSummary, type MdKind } from "@/lib/metadata/model";
+import { MD_KINDS, type ConfigurationSummary, type ImportStats, type MdKind } from "@/lib/metadata/model";
 import { supportsDirectoryPicker } from "@/lib/metadata/pick-dump";
 import type { useConfigurations } from "@/lib/metadata/use-configurations";
 
@@ -12,7 +12,7 @@ type Props = {
 
 /** Список загруженных конфигураций и загрузка выгрузки в XML. Монтируется на время показа. */
 export function ConfigurationsDialog({ configurations, onClose }: Props) {
-  const { summaries, storageError, active, setActive, remove, importState } = configurations;
+  const { builtins, summaries, storageError, active, setActive, remove, importState } = configurations;
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -47,12 +47,31 @@ export function ConfigurationsDialog({ configurations, onClose }: Props) {
             файлы</em>.
           </p>
 
-          <section aria-label="Загруженные конфигурации" className="space-y-2">
+          {builtins.length > 0 && (
+            <section aria-labelledby="builtin-configurations" className="space-y-2">
+              <h3 id="builtin-configurations" className="text-xs font-semibold tracking-wide text-muted uppercase">
+                Типовые — встроены в редактор
+              </h3>
+              {builtins.map((summary) => (
+                <ConfigurationRow
+                  key={summary.id}
+                  summary={summary}
+                  active={summary.id === active?.id}
+                  onActivate={() => setActive(summary.id)}
+                />
+              ))}
+            </section>
+          )}
+
+          <section aria-labelledby="user-configurations" className="space-y-2">
+            <h3 id="user-configurations" className="text-xs font-semibold tracking-wide text-muted uppercase">
+              Загруженные из выгрузки
+            </h3>
             {summaries === null ? (
               <p className="text-sm text-muted">Чтение списка…</p>
             ) : summaries.length === 0 ? (
               <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-sm text-muted">
-                Конфигурации ещё не загружены
+                Пока нет — загрузите свою конфигурацию из папки выгрузки
               </p>
             ) : (
               summaries.map((summary) => (
@@ -60,13 +79,15 @@ export function ConfigurationsDialog({ configurations, onClose }: Props) {
                   key={summary.id}
                   summary={summary}
                   active={summary.id === active?.id}
-                  confirmingDelete={confirmDelete === summary.id}
                   onActivate={() => setActive(summary.id)}
-                  onAskDelete={() => setConfirmDelete(summary.id)}
-                  onCancelDelete={() => setConfirmDelete(null)}
-                  onDelete={() => {
-                    setConfirmDelete(null);
-                    void remove(summary.id);
+                  deletion={{
+                    confirming: confirmDelete === summary.id,
+                    onAsk: () => setConfirmDelete(summary.id),
+                    onCancel: () => setConfirmDelete(null),
+                    onConfirm: () => {
+                      setConfirmDelete(null);
+                      void remove(summary.id);
+                    },
                   }}
                 />
               ))
@@ -132,14 +153,30 @@ function countsLine(counts: ConfigurationSummary["counts"]) {
   ].join(" · ");
 }
 
+const formatSize = (bytes: number) =>
+  bytes >= 1024 * 1024
+    ? `${(bytes / 1024 / 1024).toLocaleString("ru-RU", { maximumFractionDigits: 1 })} МБ`
+    : `${Math.max(1, Math.round(bytes / 1024))} КБ`;
+
+function statsLine(stats: ImportStats) {
+  return [
+    `модель ${formatSize(stats.modelBytes)}`,
+    `из XML ${formatSize(stats.sourceBytes)} (${stats.sourceFiles.toLocaleString("ru-RU")} файлов)`,
+    `разбор ${stats.parseSeconds.toLocaleString("ru-RU", { maximumFractionDigits: 1 })} с`,
+  ].join(" · ");
+}
+
 function ConfigurationRow(props: {
   summary: ConfigurationSummary;
   active: boolean;
-  confirmingDelete: boolean;
   onActivate: () => void;
-  onAskDelete: () => void;
-  onCancelDelete: () => void;
-  onDelete: () => void;
+  /** Нет у встроенных конфигураций — их не удалить. */
+  deletion?: {
+    confirming: boolean;
+    onAsk: () => void;
+    onCancel: () => void;
+    onConfirm: () => void;
+  };
 }) {
   const { summary, active } = props;
   const loaded = new Date(summary.loadedAt).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
@@ -162,24 +199,26 @@ function ConfigurationRow(props: {
           {summary.version && <span className="ml-2 font-normal text-muted">{summary.version}</span>}
         </div>
         <div className="text-xs text-muted">{countsLine(summary.counts)}</div>
+        {summary.stats && <div className="text-xs text-muted">{statsLine(summary.stats)}</div>}
         <div className="text-xs text-muted">
-          {summary.vendor ? `${summary.vendor} · ` : ""}загружена {loaded}
+          {summary.vendor ? `${summary.vendor} · ` : ""}
+          {summary.builtinFile ? `собрана ${loaded}` : `загружена ${loaded}`}
         </div>
       </div>
-      {props.confirmingDelete ? (
+      {props.deletion && (props.deletion.confirming ? (
         <div className="flex shrink-0 items-center gap-1 text-xs">
           <span>Удалить?</span>
-          <button type="button" onClick={props.onDelete} className="rounded px-2 py-1 text-danger hover:bg-border/60">
+          <button type="button" onClick={props.deletion.onConfirm} className="rounded px-2 py-1 text-danger hover:bg-border/60">
             Да
           </button>
-          <button type="button" onClick={props.onCancelDelete} className="rounded px-2 py-1 hover:bg-border/60">
+          <button type="button" onClick={props.deletion.onCancel} className="rounded px-2 py-1 hover:bg-border/60">
             Нет
           </button>
         </div>
       ) : (
         <button
           type="button"
-          onClick={props.onAskDelete}
+          onClick={props.deletion.onAsk}
           title="Удалить из браузера"
           aria-label={`Удалить ${summary.synonym ?? summary.name}`}
           className="shrink-0 rounded p-1 text-muted hover:bg-border/60 hover:text-foreground"
@@ -188,7 +227,7 @@ function ConfigurationRow(props: {
             <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" />
           </svg>
         </button>
-      )}
+      ))}
     </div>
   );
 }
