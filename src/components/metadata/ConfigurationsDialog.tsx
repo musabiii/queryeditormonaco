@@ -200,10 +200,12 @@ function ConfigurationRow(props: {
         </div>
         <div className="text-xs text-muted">{countsLine(summary.counts)}</div>
         {summary.stats && <div className="text-xs text-muted">{statsLine(summary.stats)}</div>}
-        <div className="text-xs text-muted">
-          {summary.vendor ? `${summary.vendor} · ` : ""}
-          {summary.builtinFile ? `собрана ${loaded}` : `загружена ${loaded}`}
-        </div>
+        {/* У встроенных дата сборки не нужна — только поставщик. */}
+        {(summary.vendor || !summary.builtinFile) && (
+          <div className="text-xs text-muted">
+            {[summary.vendor, !summary.builtinFile && `загружена ${loaded}`].filter(Boolean).join(" · ")}
+          </div>
+        )}
       </div>
       {props.deletion && (props.deletion.confirming ? (
         <div className="flex shrink-0 items-center gap-1 text-xs">
