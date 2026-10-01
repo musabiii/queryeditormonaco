@@ -58,5 +58,34 @@
       "parseSeconds": 3.3644279999999998
     },
     "builtinFile": "medicine-2.0.16.1.json.gz"
+  },
+  {
+    "id": "builtin:univer@2.2.15.20",
+    "name": "УниверситетПРОФ_2_2",
+    "synonym": "1С:Университет ПРОФ, редакция 2.2",
+    "version": "2.2.15.20",
+    "vendor": "ООО \"СГУ-Инфоком\"",
+    "loadedAt": "2026-10-01T17:56:12.095Z",
+    "counts": {
+      "Catalog": 322,
+      "Document": 113,
+      "DocumentJournal": 2,
+      "Enum": 249,
+      "ChartOfCharacteristicTypes": 27,
+      "InformationRegister": 545,
+      "AccumulationRegister": 3,
+      "BusinessProcess": 2,
+      "Task": 2,
+      "ExchangePlan": 6,
+      "Constant": 348,
+      "FilterCriterion": 3
+    },
+    "stats": {
+      "modelBytes": 2011101,
+      "sourceBytes": 30551706,
+      "sourceFiles": 1730,
+      "parseSeconds": 1.9730147999999998
+    },
+    "builtinFile": "univer-2.2.15.20.json.gz"
   }
 ]
