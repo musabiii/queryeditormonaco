@@ -28,6 +28,8 @@ const QUICK_ACTIONS = [
 
 type Props = {
   open: boolean;
+  /** Загружена конфигурация — можно передавать реквизиты таблиц. */
+  hasConfiguration: boolean;
   onClose: () => void;
   getContext: () => EditorContext;
   onInsert: (text: string) => void;
@@ -35,7 +37,7 @@ type Props = {
 };
 
 /** Чат с ИИ справа от редактора. Остаётся смонтированным, когда скрыт, чтобы не терять переписку. */
-export function AiPanel({ open, onClose, getContext, onInsert, onReplaceAll }: Props) {
+export function AiPanel({ open, hasConfiguration, onClose, getContext, onInsert, onReplaceAll }: Props) {
   const [settings, saveSettings] = useAiSettings();
   const { messages, busy, send, stop, clear } = useAiChat();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -48,7 +50,9 @@ export function AiPanel({ open, onClose, getContext, onInsert, onReplaceAll }: P
 
   const submit = (text: string) => {
     if (problem || busy || !text.trim()) return;
-    void send(text.trim(), connection, includeQuery ? getContext() : null);
+    const context = includeQuery ? getContext() : null;
+    if (context && !settings.sendTableStructure) context.structure = null;
+    void send(text.trim(), connection, context);
     setInput("");
   };
 
@@ -135,6 +139,22 @@ export function AiPanel({ open, onClose, getContext, onInsert, onReplaceAll }: P
             <input type="checkbox" checked={includeQuery} onChange={(e) => setIncludeQuery(e.target.checked)} />
             Передавать текст запроса
           </label>
+          <label
+            className="flex items-center gap-1.5 text-xs text-muted"
+            title={
+              hasConfiguration
+                ? "Реквизиты и типы таблиц конфигурации, которые есть в запросе, — чтобы модель не придумывала имена полей"
+                : "Нужна загруженная конфигурация"
+            }
+          >
+            <input
+              type="checkbox"
+              checked={settings.sendTableStructure && includeQuery && hasConfiguration}
+              disabled={!includeQuery || !hasConfiguration}
+              onChange={(e) => saveSettings({ ...settings, sendTableStructure: e.target.checked })}
+            />
+            Реквизиты таблиц
+          </label>
           {busy ? (
             <button
               type="button"
@@ -207,8 +227,13 @@ function MessageList({
         ? emptyState
         : messages.map((message) =>
             message.role === "user" ? (
-              <div key={message.id} className="ml-6 rounded-lg bg-border/60 px-3 py-2 text-sm whitespace-pre-wrap">
-                {message.text}
+              <div key={message.id} className="ml-6 space-y-1">
+                <div className="rounded-lg bg-border/60 px-3 py-2 text-sm whitespace-pre-wrap">{message.text}</div>
+                {message.notices.map((notice, i) => (
+                  <p key={i} className="text-right text-xs text-muted">
+                    {notice}
+                  </p>
+                ))}
               </div>
             ) : (
               <div key={message.id} className="space-y-1.5">

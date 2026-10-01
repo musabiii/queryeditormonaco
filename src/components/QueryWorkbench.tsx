@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { bslQueryCode, setCompletionMetadata, type BatchQuery, type QueryParameter } from "@/lib/query-language";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  MetadataIndex,
+  bslQueryCode,
+  queryTablesStructure,
+  setCompletionMetadata,
+  type BatchQuery,
+  type QueryParameter,
+} from "@/lib/query-language";
 import { loadModel } from "@/lib/metadata/builtin";
 import { SAMPLE_QUERY } from "@/lib/sample-query";
 import { useConfigurations } from "@/lib/metadata/use-configurations";
@@ -59,6 +66,8 @@ export function QueryWorkbench() {
   }, [activeConfiguration]);
   const modelLoading = Boolean(activeId) && modelState?.id !== activeId;
   const activeModel = activeId && modelState?.id === activeId ? modelState.model : null;
+  // Для описания таблиц запроса в сообщениях ИИ-помощнику.
+  const metadataIndex = useMemo(() => (activeModel ? new MetadataIndex(activeModel) : null), [activeModel]);
   const modelNote = modelLoading ? " (загрузка…)" : activeId && !activeModel ? " (не удалось загрузить)" : "";
   const editorRef = useRef<QueryEditorHandle>(null);
 
@@ -116,11 +125,16 @@ export function QueryWorkbench() {
         />
         <AiPanel
           open={aiOpen}
+          hasConfiguration={Boolean(metadataIndex)}
           onClose={() => setAiOpen(false)}
-          getContext={() => ({
-            query: editorRef.current?.getText() ?? "",
-            selection: editorRef.current?.getSelectedText() ?? "",
-          })}
+          getContext={() => {
+            const query = editorRef.current?.getText() ?? "";
+            return {
+              query,
+              selection: editorRef.current?.getSelectedText() ?? "",
+              structure: metadataIndex ? queryTablesStructure(query, metadataIndex) : null,
+            };
+          }}
           onInsert={(text) => editorRef.current?.insertText(text)}
           onReplaceAll={(text) => editorRef.current?.replaceAll(text)}
         />

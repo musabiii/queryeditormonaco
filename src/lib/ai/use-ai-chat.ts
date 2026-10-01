@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import type { TablesStructure } from "../query-language";
 import type { ChatEvent, ChatTurn } from "./protocol";
 import type { ProviderConnection } from "./providers";
 
@@ -16,7 +17,12 @@ export type ChatMessage = {
   streaming?: boolean;
 };
 
-export type EditorContext = { query: string; selection: string };
+export type EditorContext = {
+  query: string;
+  selection: string;
+  /** Реквизиты таблиц запроса из конфигурации; null — не передавать. */
+  structure: TablesStructure | null;
+};
 
 let nextId = 0;
 const newId = () => `m${++nextId}`;
@@ -27,6 +33,8 @@ export function useAiChat() {
   const abortRef = useRef<AbortController | null>(null);
   // Текст запроса, который модель уже видела: повторно его не отправляем.
   const sentQueryRef = useRef<string | null>(null);
+  // Так же и структура таблиц.
+  const sentStructureRef = useRef<string | null>(null);
 
   const update = (id: string, change: (message: ChatMessage) => ChatMessage) =>
     setMessages((list) => list.map((message) => (message.id === id ? change(message) : message)));
@@ -35,12 +43,13 @@ export function useAiChat() {
     async (text: string, connection: ProviderConnection, context: EditorContext | null) => {
       if (busy || !text.trim()) return;
 
+      const structure = context?.structure && context.structure.text !== sentStructureRef.current ? context.structure : null;
       const user: ChatMessage = {
         id: newId(),
         role: "user",
         text,
-        content: withContext(text, context, sentQueryRef.current),
-        notices: [],
+        content: withContext(text, context, sentQueryRef.current) + (structure ? `\n\n${structure.text}` : ""),
+        notices: structure ? [`Переданы реквизиты таблиц: ${structure.tables.join(", ")}`] : [],
       };
       const assistant: ChatMessage = {
         id: newId(),
@@ -51,6 +60,7 @@ export function useAiChat() {
         streaming: true,
       };
       if (context?.query.trim()) sentQueryRef.current = context.query;
+      if (structure) sentStructureRef.current = structure.text;
 
       // Модели уходит вся переписка; неудачные пустые ответы пропускаем.
       const history: ChatTurn[] = [...messages, user]
@@ -108,6 +118,7 @@ export function useAiChat() {
   const clear = useCallback(() => {
     abortRef.current?.abort();
     sentQueryRef.current = null;
+    sentStructureRef.current = null;
     setMessages([]);
   }, []);
 

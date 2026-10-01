@@ -9,6 +9,8 @@ export type AiSettings = {
   provider: ProviderId;
   /** Настройки каждого провайдера хранятся отдельно, чтобы при переключении ключи не терялись. */
   providers: Record<ProviderId, ProviderSettings>;
+  /** Вместе с текстом запроса передавать реквизиты и типы его таблиц из конфигурации. */
+  sendTableStructure: boolean;
 };
 
 /** Ключи хранятся только в этом браузере и уходят на сервер редактора лишь вместе с запросом. */
@@ -18,7 +20,7 @@ export function defaultAiSettings(): AiSettings {
   const providers = Object.fromEntries(
     PROVIDERS.map((p) => [p.id, { apiKey: "", model: p.defaultModel, baseUrl: "" }]),
   ) as Record<ProviderId, ProviderSettings>;
-  return { provider: "anthropic", providers };
+  return { provider: "anthropic", providers, sendTableStructure: true };
 }
 
 export function activeConnection(settings: AiSettings): ProviderConnection {
@@ -51,6 +53,7 @@ function parse(raw: string | null): AiSettings {
   try {
     const saved = JSON.parse(raw) as Partial<AiSettings>;
     if (saved.provider && saved.provider in settings.providers) settings.provider = saved.provider;
+    if (typeof saved.sendTableStructure === "boolean") settings.sendTableStructure = saved.sendTableStructure;
     for (const id of Object.keys(settings.providers) as ProviderId[]) {
       settings.providers[id] = { ...settings.providers[id], ...saved.providers?.[id] };
     }
