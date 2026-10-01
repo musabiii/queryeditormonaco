@@ -68,11 +68,61 @@ const OPTIONS: editor.IStandaloneEditorConstructionOptions = {
   // убираем молча: по умолчанию Monaco спрашивает через блокирующий window.confirm,
   // и страница «зависает», пока окно не закрыто.
   unusualLineTerminators: "auto",
+  // Перетаскивание обрабатываем сами — см. handleTextDrop.
+  dropIntoEditor: { enabled: false },
 };
 
 /** Все виды переводов строк, включая U+2028/U+2029 и NEL, — в обычный «\n». */
 function normalizeLineBreaks(text: string) {
   return text.replace(/\r\n?|[\u2028\u2029\u0085]/g, "\n");
+}
+
+/**
+ * Перетаскивание текста в редактор (из дерева конфигурации и функций).
+ * Встроенная обработка Monaco вставляет текст как сниппет с «$0» в конце,
+ * а в standalone-сборке сниппет применяется как обычный текст — «$0»
+ * остаётся в запросе. Поэтому она отключена (dropIntoEditor), и текст
+ * вставляется обычной правкой; курсор во время перетаскивания показывает место.
+ */
+function handleTextDrop(
+  instance: editor.IStandaloneCodeEditor,
+  monaco: typeof import("monaco-editor"),
+): () => void {
+  const container = instance.getContainerDomNode();
+  const positionAt = (event: DragEvent) =>
+    instance.getTargetAtClientPoint(event.clientX, event.clientY)?.position ?? null;
+
+  const onDragOver = (event: DragEvent) => {
+    if (!event.dataTransfer?.types.includes("text/plain")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    const position = positionAt(event);
+    if (position) instance.setPosition(position);
+  };
+
+  const onDrop = (event: DragEvent) => {
+    const text = event.dataTransfer?.getData("text/plain");
+    const model = instance.getModel();
+    const position = positionAt(event) ?? instance.getPosition();
+    if (!text || !model || !position) return;
+    event.preventDefault();
+    const inserted = normalizeLineBreaks(text);
+    const offset = model.getOffsetAt(position);
+    instance.pushUndoStop();
+    instance.executeEdits("drop", [{ range: monaco.Range.fromPositions(position), text: inserted }], () => {
+      const end = model.getPositionAt(offset + inserted.length);
+      return [monaco.Selection.fromPositions(end)];
+    });
+    instance.pushUndoStop();
+    instance.focus();
+  };
+
+  container.addEventListener("dragover", onDragOver);
+  container.addEventListener("drop", onDrop);
+  return () => {
+    container.removeEventListener("dragover", onDragOver);
+    container.removeEventListener("drop", onDrop);
+  };
 }
 
 function withEditor(
@@ -205,8 +255,10 @@ export function QueryEditor({
 
   const handleMount: OnMount = (instance, monaco) => {
     editorRef.current = instance;
+    const stopDrop = handleTextDrop(instance, monaco);
     instance.onDidDispose(() => {
       editorRef.current = null;
+      stopDrop();
     });
     instance.focus();
 
