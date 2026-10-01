@@ -10,14 +10,14 @@ import type { MetadataIndex, TableField, TableRef } from "./metadata-index";
 
 const upper = (token: Token | undefined) => (token?.kind === "word" ? token.text.toUpperCase() : "");
 const KEYWORD_WORDS = new Set(spellings(KEYWORDS, AS_KEYWORDS, WORD_OPERATORS, CONSTANTS).map((w) => w.toUpperCase()));
-const isKeyword = (token: Token | undefined) => KEYWORD_WORDS.has(upper(token));
+export const isKeyword = (token: Token | undefined) => KEYWORD_WORDS.has(upper(token));
 const is = (token: Token | undefined, ...words: string[]) => words.includes(upper(token));
 
 /** Секции, которые завершают список источников ИЗ. */
-const AFTER_FROM = ["ГДЕ", "WHERE", "СГРУППИРОВАТЬ", "GROUP", "ИМЕЮЩИЕ", "HAVING", "УПОРЯДОЧИТЬ", "ORDER", "ИТОГИ", "TOTALS", "ДЛЯ", "FOR", "ИНДЕКСИРОВАТЬ", "INDEX", "АВТОУПОРЯДОЧИВАНИЕ", "AUTOORDER", "ОБЪЕДИНИТЬ", "UNION"];
+export const AFTER_FROM = ["ГДЕ", "WHERE", "СГРУППИРОВАТЬ", "GROUP", "ИМЕЮЩИЕ", "HAVING", "УПОРЯДОЧИТЬ", "ORDER", "ИТОГИ", "TOTALS", "ДЛЯ", "FOR", "ИНДЕКСИРОВАТЬ", "INDEX", "АВТОУПОРЯДОЧИВАНИЕ", "AUTOORDER", "ОБЪЕДИНИТЬ", "UNION"];
 /** Секции, которые завершают список полей ВЫБРАТЬ. */
-const AFTER_SELECT = ["ПОМЕСТИТЬ", "INTO", "ИЗ", "FROM", ...AFTER_FROM];
-const SELECT_MODIFIERS = ["РАЗРЕШЕННЫЕ", "ALLOWED", "РАЗЛИЧНЫЕ", "DISTINCT"];
+export const AFTER_SELECT = ["ПОМЕСТИТЬ", "INTO", "ИЗ", "FROM", ...AFTER_FROM];
+export const SELECT_MODIFIERS = ["РАЗРЕШЕННЫЕ", "ALLOWED", "РАЗЛИЧНЫЕ", "DISTINCT"];
 
 export type Source = { alias: string; table: TableRef };
 
@@ -90,7 +90,7 @@ function uniqueFields(fields: TableField[]): TableField[] {
 
 // ---------- Разбиение на запросы и области ----------
 
-function splitStatements(tokens: Token[]) {
+export function splitStatements(tokens: Token[]) {
   const statements: { tokens: Token[]; start: number; end: number }[] = [];
   let current: Token[] = [];
   let start = 0;
@@ -108,7 +108,7 @@ function splitStatements(tokens: Token[]) {
 }
 
 /** Самый внутренний подзапрос «(ВЫБРАТЬ …)», содержащий курсор; иначе весь запрос. */
-function innermostScope(tokens: Token[], offset: number): Token[] {
+export function innermostScope(tokens: Token[], offset: number): Token[] {
   let scope = tokens;
   for (;;) {
     let found: Token[] | null = null;
@@ -128,7 +128,7 @@ function innermostScope(tokens: Token[], offset: number): Token[] {
 }
 
 /** Часть объединения (ОБЪЕДИНИТЬ), в которой стоит курсор. */
-function unionPart(tokens: Token[], offset: number): Token[] {
+export function unionPart(tokens: Token[], offset: number): Token[] {
   const parts = splitTopLevel(tokens, (t) => is(t, "ОБЪЕДИНИТЬ", "UNION"));
   return parts.find((part) => part.length && part[0].start <= offset && offset <= part[part.length - 1].end + 1)
     ?? parts.find((part) => part.length && part[0].start > offset)
@@ -140,7 +140,7 @@ function firstUnionPart(tokens: Token[]): Token[] {
   return splitTopLevel(tokens, (t) => is(t, "ОБЪЕДИНИТЬ", "UNION"))[0] ?? [];
 }
 
-function splitTopLevel(tokens: Token[], isSeparator: (token: Token) => boolean): Token[][] {
+export function splitTopLevel(tokens: Token[], isSeparator: (token: Token) => boolean): Token[][] {
   const parts: Token[][] = [[]];
   let depth = 0;
   for (const token of tokens) {
@@ -152,7 +152,7 @@ function splitTopLevel(tokens: Token[], isSeparator: (token: Token) => boolean):
   return parts;
 }
 
-function matchParen(tokens: Token[], open: number): number {
+export function matchParen(tokens: Token[], open: number): number {
   let depth = 0;
   for (let i = open; i < tokens.length; i++) {
     if (tokens[i].text === "(") depth++;

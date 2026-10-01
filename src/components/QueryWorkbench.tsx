@@ -91,6 +91,7 @@ export function QueryWorkbench() {
           model={activeModel}
           loading={modelLoading}
           onInsert={(text) => editorRef.current?.insertText(text)}
+          onSmartInsert={(target, index) => editorRef.current?.smartInsert(target, index)}
           onOpenConfigurations={() => setConfigurationsOpen(true)}
           onClose={() => setTreeOpen(false)}
         />

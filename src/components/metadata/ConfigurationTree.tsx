@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { MD_KINDS, type ConfigurationModel, type MdObject } from "@/lib/metadata/model";
-import { MetadataIndex, type TableField } from "@/lib/query-language";
+import { MetadataIndex, type SmartTarget, type TableField } from "@/lib/query-language";
 import { ToolButton } from "../ToolButton";
 
 type Icon = "kind" | "object" | "group" | "table" | "virtual" | "field" | "value";
@@ -15,8 +15,10 @@ type TreeNode = {
   /** Синоним — во всплывающей подсказке. */
   title?: string;
   icon: Icon;
-  /** Что вставить в запрос по двойному клику или перетаскиванием. */
+  /** Что вставить в запрос перетаскиванием (и двойным кликом, если нет target). */
   insert?: string;
+  /** Таблица или реквизит: двойной клик добавляет их в запрос под курсором. */
+  target?: SmartTarget;
   children?: () => TreeNode[];
 };
 
@@ -26,6 +28,8 @@ type Props = {
   /** Есть активная конфигурация, но её модель ещё загружается. */
   loading: boolean;
   onInsert: (text: string) => void;
+  /** Добавление таблицы или реквизита в запрос под курсором редактора. */
+  onSmartInsert: (target: SmartTarget, index: MetadataIndex) => void;
   onOpenConfigurations: () => void;
   onClose: () => void;
 };
@@ -34,7 +38,7 @@ type Props = {
 const PAGE = 300;
 
 /** Дерево метаданных активной конфигурации слева от редактора. */
-export function ConfigurationTree({ open, model, loading, onInsert, onOpenConfigurations, onClose }: Props) {
+export function ConfigurationTree({ open, model, loading, onInsert, onSmartInsert, onOpenConfigurations, onClose }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [showAll, setShowAll] = useState<Set<string>>(new Set());
@@ -71,7 +75,10 @@ export function ConfigurationTree({ open, model, loading, onInsert, onOpenConfig
                 depth={depth}
                 open={isOpen}
                 onToggle={() => toggle(node.id)}
-                onInsert={() => node.insert && onInsert(node.insert)}
+                onInsert={() => {
+                  if (node.target && index) onSmartInsert(node.target, index);
+                  else if (node.insert) onInsert(node.insert);
+                }}
               />
               {isOpen && node.children && (
                 <ul role="group">{renderNodes(node.children(), depth + 1)}</ul>
@@ -156,7 +163,7 @@ export function ConfigurationTree({ open, model, loading, onInsert, onOpenConfig
             </ul>
           )}
           <p className="shrink-0 border-t border-border px-3 py-1.5 text-xs text-muted">
-            Двойной клик или перетаскивание — вставить в запрос
+            Двойной клик — добавить в запрос у курсора, перетаскивание — вставить имя
           </p>
         </>
       )}
@@ -207,7 +214,7 @@ function TreeRow(props: { node: TreeNode; depth: number; open: boolean; onToggle
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      if (node.insert) props.onInsert();
+      if (node.insert || node.target) props.onInsert();
       else if (hasChildren) props.onToggle();
     } else if ((event.key === "ArrowRight" && hasChildren && !open) || (event.key === "ArrowLeft" && open)) {
       event.preventDefault();
@@ -233,9 +240,9 @@ function TreeRow(props: { node: TreeNode; depth: number; open: boolean; onToggle
       draggable={Boolean(node.insert)}
       onDragStart={onDragStart}
       onClick={() => hasChildren && props.onToggle()}
-      onDoubleClick={() => node.insert && props.onInsert()}
+      onDoubleClick={() => (node.insert || node.target) && props.onInsert()}
       onKeyDown={onKeyDown}
-      title={[node.title, node.insert && `Вставить: ${node.insert}`].filter(Boolean).join("\n") || undefined}
+      title={[node.title, node.target && "Двойной клик — добавить в запрос", node.insert && `Перетащить: ${node.insert}`].filter(Boolean).join("\n") || undefined}
       className="flex cursor-default items-center gap-1.5 py-0.5 pr-2 select-none hover:bg-border/60 focus-visible:bg-border/60 focus-visible:outline-none"
       style={{ paddingLeft: 6 + depth * 14 }}
     >
@@ -311,6 +318,7 @@ function objectNode(index: MetadataIndex, object: MdObject, id: string, queryNam
     title: object.synonym,
     icon: "object",
     insert: full,
+    target: { kind: "table", path: [queryName, object.name] },
     children: () => objectChildren(index, object, id, full),
   };
 }
@@ -320,7 +328,7 @@ function objectChildren(index: MetadataIndex, object: MdObject, id: string, full
   const groups: TreeNode[] = [];
   const addGroup = (key: string, label: string, fields: TableField[]) => {
     if (fields.length) {
-      groups.push({ id: `${id}/${key}`, label, detail: String(fields.length), icon: "group", children: () => fieldNodes(fields, `${id}/${key}`) });
+      groups.push({ id: `${id}/${key}`, label, detail: String(fields.length), icon: "group", children: () => fieldNodes(fields, `${id}/${key}`, full.split(".")) });
     }
   };
 
@@ -372,14 +380,15 @@ function tableNode(index: MetadataIndex, [full, name]: [string, string], id: str
     title: synonym ?? (icon === "virtual" ? "Виртуальная таблица" : undefined),
     icon,
     insert: path,
+    target: { kind: "table", path: path.split(".") },
     children: () => {
       const table = index.resolveTable(path.split("."));
-      return table ? fieldNodes(index.fieldsOf(table), id) : [];
+      return table ? fieldNodes(index.fieldsOf(table), id, path.split(".")) : [];
     },
   };
 }
 
-function fieldNodes(fields: TableField[], parentId: string): TreeNode[] {
+function fieldNodes(fields: TableField[], parentId: string, table: string[]): TreeNode[] {
   return fields.map((field) => ({
     id: `${parentId}/${field.name}`,
     label: field.name,
@@ -387,5 +396,6 @@ function fieldNodes(fields: TableField[], parentId: string): TreeNode[] {
     title: [field.synonym, field.types.join(" | ")].filter(Boolean).join("\n") || undefined,
     icon: "field" as const,
     insert: field.name,
+    target: { kind: "field" as const, table, field: field.name },
   }));
 }

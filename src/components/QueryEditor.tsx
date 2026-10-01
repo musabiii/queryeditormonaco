@@ -10,9 +10,12 @@ import {
   collectParameters,
   parseBatch,
   registerQueryLanguage,
+  smartInsert,
   unwrapBslString,
   type BatchQuery,
+  type MetadataIndex,
   type QueryParameter,
+  type SmartTarget,
 } from "@/lib/query-language";
 
 export type EditorStatus = {
@@ -42,6 +45,8 @@ export type QueryEditorHandle = {
    * в выделении или во всём тексте. false — текст не похож на литерал.
    */
   unwrapCodeString(): boolean;
+  /** Добавляет реквизит или таблицу из дерева конфигурации в запрос под курсором. */
+  smartInsert(target: SmartTarget, index: MetadataIndex): void;
   /** Заменяет весь текст; действие можно отменить через Ctrl+Z. */
   replaceAll(text: string): void;
 };
@@ -240,6 +245,29 @@ export function QueryEditor({
       instance.executeEdits("unwrap", [{ range, text }]);
       instance.pushUndoStop();
       return true;
+    },
+    smartInsert(target, index) {
+      withEditor(editorRef.current, (instance) => {
+        const model = instance.getModel();
+        const position = instance.getPosition();
+        if (!model || !position) return;
+        const result = smartInsert(model.getValue(), model.getOffsetAt(position), target, index);
+        if (!result.edits.length) return;
+        const rangeOf = (start: number, end: number) => {
+          const from = model.getPositionAt(start);
+          const to = model.getPositionAt(end);
+          return { startLineNumber: from.lineNumber, startColumn: from.column, endLineNumber: to.lineNumber, endColumn: to.column };
+        };
+        instance.pushUndoStop();
+        instance.executeEdits(
+          "tree",
+          result.edits.map((edit) => ({ range: rangeOf(edit.start, edit.end), text: edit.text })),
+        );
+        instance.pushUndoStop();
+        const selection = rangeOf(result.selection.start, result.selection.end);
+        instance.setSelection(selection);
+        instance.revealRangeInCenterIfOutsideViewport(selection);
+      });
     },
     replaceAll(text) {
       withEditor(editorRef.current, (instance) => {
