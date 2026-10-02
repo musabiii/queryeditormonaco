@@ -13,13 +13,19 @@ npm run dev
 
 ## Запуск на сервере в Docker
 
-Образ собирается из standalone-сборки Next.js (`Dockerfile`), контейнер `queryeditor` подключается
-к внешней сети `nginx-net`, порт наружу не публикуется — к нему обращается nginx из своего контейнера:
+Образ (standalone-сборка Next.js, `Dockerfile`) собирает GitHub Actions при каждом пуше в `master`
+и публикует в `ghcr.io/musabiii/queryeditormonaco` — на сервере сборки нет, нужна только загрузка.
+Контейнер `queryeditor` подключается к внешней сети `nginx-net`, порт наружу не публикуется —
+к нему обращается nginx из своего контейнера:
 
 ```bash
 docker network create nginx-net   # если сети ещё нет
-docker compose up -d --build
+docker compose pull && docker compose up -d
 ```
+
+Пакет в GitHub Container Registry по умолчанию приватный: либо сделайте его публичным
+(страница пакета → Package settings → Change visibility), либо войдите на сервере
+`docker login ghcr.io` с токеном, у которого есть право `read:packages`.
 
 ```nginx
 location / {

@@ -1,13 +1,16 @@
-# Запуск на сервере за nginx, который тоже работает в Docker:
+# Запуск на сервере за nginx, который тоже работает в Docker.
+# Образ собирает GitHub Actions (.github/workflows/docker.yml) — на сервере сборки нет:
 #   docker network create nginx-net   # если сети ещё нет
-#   docker compose up -d --build
+#   docker compose pull && docker compose up -d
+# Обновление после нового пуша в master — те же две команды.
 # В конфиге nginx: proxy_pass http://queryeditor:3000;
 # Порт наружу не публикуется — приложение доступно только через nginx по сети nginx-net.
+#
+# Собрать образ самому (нужно ~2 ГБ памяти): docker build -t ghcr.io/musabiii/queryeditormonaco:latest .
 
 services:
   queryeditor:
-    build: .
-    image: queryeditormonaco
+    image: ghcr.io/musabiii/queryeditormonaco:latest
     container_name: queryeditor
     restart: unless-stopped
     expose:

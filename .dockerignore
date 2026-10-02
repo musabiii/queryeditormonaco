@@ -9,6 +9,7 @@ medicine
 univer
 
 .git
+.github
 .claude
 .env*
 *.tsbuildinfo
