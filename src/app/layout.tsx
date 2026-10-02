@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { themeInitScript } from "@/lib/theme";
 import "./globals.css";
 
@@ -13,7 +14,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="h-full">{children}</body>
+      <body className="h-full">
+        {children}
+        {/*
+          Посещения и просмотры страниц в Vercel Analytics — только при сборке на Vercel
+          (там задана VERCEL=1): на другом хостинге скрипта /_vercel/insights нет.
+        */}
+        {process.env.VERCEL && <Analytics />}
+      </body>
     </html>
   );
 }
