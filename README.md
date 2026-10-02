@@ -11,6 +11,29 @@ npm run dev
 
 Откройте http://localhost:3000.
 
+## Запуск на сервере в Docker
+
+Образ собирается из standalone-сборки Next.js (`Dockerfile`), контейнер `queryeditor` подключается
+к внешней сети `nginx-net`, порт наружу не публикуется — к нему обращается nginx из своего контейнера:
+
+```bash
+docker network create nginx-net   # если сети ещё нет
+docker compose up -d --build
+```
+
+```nginx
+location / {
+    proxy_pass http://queryeditor:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Ответы ИИ-помощника идут потоком; маршрут `/api/ai/chat` отдаёт `X-Accel-Buffering: no`, поэтому
+nginx не копит их целиком. Запросы к провайдерам ИИ делает сервер — с сервера в РФ API OpenAI,
+Anthropic и Google, скорее всего, недоступны.
+
 ## Как устроено
 
 - **Monaco без CDN.** Скрипт `scripts/copy-monaco.mjs` копирует сборку `monaco-editor/min/vs`

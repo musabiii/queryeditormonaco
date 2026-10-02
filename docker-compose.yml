@@ -1,0 +1,20 @@
+# Запуск на сервере за nginx, который тоже работает в Docker:
+#   docker network create nginx-net   # если сети ещё нет
+#   docker compose up -d --build
+# В конфиге nginx: proxy_pass http://queryeditor:3000;
+# Порт наружу не публикуется — приложение доступно только через nginx по сети nginx-net.
+
+services:
+  queryeditor:
+    build: .
+    image: queryeditormonaco
+    container_name: queryeditor
+    restart: unless-stopped
+    expose:
+      - "3000"
+    networks:
+      - nginx-net
+
+networks:
+  nginx-net:
+    external: true

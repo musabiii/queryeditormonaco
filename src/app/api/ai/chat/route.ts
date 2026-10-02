@@ -46,6 +46,8 @@ export async function POST(request: Request) {
     headers: {
       "Content-Type": "application/x-ndjson; charset=utf-8",
       "Cache-Control": "no-store",
+      // nginx перед приложением не копит ответ целиком — текст идёт по мере генерации.
+      "X-Accel-Buffering": "no",
     },
   });
 }
