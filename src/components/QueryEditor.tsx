@@ -82,6 +82,8 @@ const OPTIONS: editor.IStandaloneEditorConstructionOptions = {
 
 /** Разделитель запросов пакета, как у конструктора запросов 1С. */
 const BATCH_SEPARATOR = "/".repeat(80);
+/** Сколько пустых строк оставить под добавленным запросом. */
+const TRAILING_LINES = 5;
 
 /** Все виды переводов строк, включая U+2028/U+2029 и NEL, — в обычный «\n». */
 function normalizeLineBreaks(text: string) {
@@ -288,7 +290,8 @@ export function QueryEditor({
         // Хвостовые пробелы и пустые строки заменяем — новый запрос идёт сразу после текста.
         const end = text.trimEnd().length;
         const query = "ВЫБРАТЬ";
-        let insert = end ? `\n\n${BATCH_SEPARATOR}\n${query}` : query;
+        // Пустые строки после — чтобы новый запрос не прилипал к нижнему краю редактора.
+        let insert = `${end ? `\n\n${BATCH_SEPARATOR}\n` : ""}${query}${"\n".repeat(TRAILING_LINES)}`;
         // «;» — после последней лексемы, а не в конце текста: там может быть комментарий.
         const last = tokenize(text).filter((token) => token.kind !== "comment").at(-1);
         const needSemicolon = last && last.text !== ";";
@@ -298,9 +301,11 @@ export function QueryEditor({
         instance.pushUndoStop();
         instance.executeEdits("batch", edits);
         instance.pushUndoStop();
-        const cursor = model.getPositionAt(model.getValueLength());
+        // Курсор — сразу после «ВЫБРАТЬ», пустые строки под ним тоже в поле зрения.
+        const line = model.getLineCount() - TRAILING_LINES;
+        const cursor = { lineNumber: line, column: model.getLineMaxColumn(line) };
         instance.setPosition(cursor);
-        instance.revealPositionInCenterIfOutsideViewport(cursor);
+        instance.revealLinesInCenterIfOutsideViewport(cursor.lineNumber, cursor.lineNumber + TRAILING_LINES);
       });
     },
     replaceAll(text) {

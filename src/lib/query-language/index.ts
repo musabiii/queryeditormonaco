@@ -1,7 +1,7 @@
 export { LANGUAGE_ID } from "./grammar";
 export { tokenize } from "./lexer";
 export { registerQueryLanguage } from "./register";
-export { batchQueryTitle, parseBatch, type BatchQuery, type BatchQueryKind } from "./batch";
+export { batchQueryAt, batchQueryTitle, parseBatch, type BatchQuery, type BatchQueryKind } from "./batch";
 export { collectParameters, type QueryParameter } from "./parameters";
 export {
   FUNCTION_CATALOG,

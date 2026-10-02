@@ -8,6 +8,7 @@
  * - нет ИЗ — таблица становится первым источником, нет запроса — создаётся.
  */
 
+import { batchQueryAt } from "./batch";
 import { tokenize, type Token } from "./lexer";
 import {
   AFTER_FROM,
@@ -62,7 +63,17 @@ type ParsedQuery = {
 export function smartInsert(text: string, offset: number, target: SmartTarget, index: MetadataIndex): SmartInsertResult {
   const tokens = tokenize(text).filter((token) => token.kind !== "comment");
   const statements = splitStatements(tokens);
-  const statement = statements.find((s) => s.start <= offset && offset <= s.end) ?? statements[statements.length - 1];
+  // Как в «Структуре запроса»: курсор в пустых строках после блока относится к этому блоку.
+  const anchored = batchQueryAt(
+    statements.filter((s) => s.tokens.length).map((s) => ({ ...s, start: s.tokens[0].start })),
+    offset,
+  );
+  const statement = anchored ?? statements[statements.length - 1];
+  if (anchored) {
+    const first = anchored.tokens[0].start;
+    const last = anchored.tokens[anchored.tokens.length - 1].end;
+    offset = Math.min(Math.max(offset, first), last);
+  }
 
   const edits: TextEdit[] = [];
   if (!statement.tokens.some((token) => is(token, "ВЫБРАТЬ", "SELECT"))) {

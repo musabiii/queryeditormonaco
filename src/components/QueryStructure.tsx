@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  batchQueryAt,
   batchQueryTitle,
   type BatchQuery,
   type BatchQueryKind,
@@ -47,6 +48,8 @@ export function QueryStructure({
   onSelectRange,
   onInsertSnippet,
 }: Props) {
+  // Курсор в пустых строках после блока относится к этому блоку — как и вставка из дерева конфигурации.
+  const activeQuery = cursorOffset === undefined ? undefined : batchQueryAt(queries, cursorOffset);
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-l border-border bg-panel md:flex">
       <section aria-labelledby="query-structure" className={PANEL_SECTION}>
@@ -59,8 +62,7 @@ export function QueryStructure({
           {queries.length === 0 && <p className="px-3 py-1.5 text-sm text-muted">Запрос пуст</p>}
           <ol>
             {queries.map((query) => {
-              const active =
-                cursorOffset !== undefined && cursorOffset >= query.start && cursorOffset <= query.end;
+              const active = query === activeQuery;
               // Жирным — то, что участвует в результате: запросы пакета и используемые временные таблицы.
               const bold = query.kind === "select" || (query.kind === "temp-table" && query.used);
               return (

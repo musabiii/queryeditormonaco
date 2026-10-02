@@ -111,6 +111,21 @@ function describe(tokens: Token[], index: number): BatchQuery {
   return { ...range, kind: "select" };
 }
 
+/**
+ * Запрос пакета, к которому относится курсор: ближайший, что начинается не ниже
+ * курсора. Пустые строки после «;» и разделитель «////» относятся к предыдущему
+ * блоку; выше первого запроса — первый. По тому же правилу работает вставка
+ * из дерева конфигурации (smart-insert.ts).
+ */
+export function batchQueryAt<T extends { start: number }>(queries: T[], offset: number): T | undefined {
+  let found = queries[0];
+  for (const query of queries) {
+    if (query.start <= offset) found = query;
+    else break;
+  }
+  return found;
+}
+
 /** Название запроса так, как его показывает конструктор запросов. */
 export function batchQueryTitle(query: BatchQuery): string {
   if (query.kind === "drop") return `Уничтожить ${query.tableName ?? ""}`.trim();
