@@ -21,7 +21,7 @@ import {
   splitTopLevel,
   unionPart,
 } from "./completion/query-context";
-import type { MetadataIndex, TableRef } from "./completion/metadata-index";
+import type { MetadataIndex, TableField, TableRef } from "./completion/metadata-index";
 
 /** Что выбрано в дереве: таблица (путь как в запросе) или реквизит таблицы. */
 export type SmartTarget =
@@ -286,7 +286,53 @@ function joinCondition(table: TableRef | undefined, alias: string, sources: Pars
       if (field) return `${source.alias}.${field.name} = ${alias}.Ссылка`;
     }
   }
+
+  // Общие поля ссылочного типа: сначала с одинаковым именем (все такие — через И),
+  // потом первая пара с разными именами.
+  const own = refFields(table, index);
+  for (const source of withTables) {
+    const pairs = commonRefFields(own, refFields(source.table!, index), true);
+    if (pairs.length) return pairs.map(([mine, theirs]) => `${alias}.${mine.name} = ${source.alias}.${theirs.name}`).join(" И ");
+  }
+  for (const source of withTables) {
+    const [pair] = commonRefFields(own, refFields(source.table!, index), false);
+    if (pair) return `${alias}.${pair[0].name} = ${source.alias}.${pair[1].name}`;
+  }
   return null;
+}
+
+/**
+ * Поля таблицы со ссылочными типами (справочники, документы, перечисления…).
+ * Стандартные (Ссылка, Регистратор, Родитель) не берём: два регистра по
+ * Регистратор не соединяют.
+ */
+function refFields(table: TableRef, index: MetadataIndex): TableField[] {
+  return index
+    .fieldsOf(table)
+    .filter((field) => field.group !== "standard")
+    .map((field) => ({ ...field, types: field.types.filter((type) => index.objectByType(type)) }))
+    .filter((field) => field.types.length);
+}
+
+/**
+ * Пары полей с общим ссылочным типом. sameName — только одноимённые (все),
+ * иначе — с разными именами. Если среди пар есть измерения у обеих таблиц —
+ * берутся только они: регистры соединяют по измерениям.
+ */
+function commonRefFields(mine: TableField[], theirs: TableField[], sameName: boolean): [TableField, TableField][] {
+  const pairs: [TableField, TableField][] = [];
+  for (const a of mine) {
+    for (const b of theirs) {
+      const named = a.name.toLowerCase() === b.name.toLowerCase();
+      if (named !== sameName) continue;
+      // Без совпадения имён — только поля одного ссылочного типа: составные
+      // («ПредметПубликации» — что угодно) совпадают по типу случайно.
+      if (!named && (a.types.length > 1 || b.types.length > 1)) continue;
+      if (a.types.some((type) => hasType(b.types, type.toLowerCase()))) pairs.push([a, b]);
+    }
+  }
+  const dimensions = pairs.filter(([a, b]) => a.group === "dimension" && b.group === "dimension");
+  return dimensions.length ? dimensions : pairs;
 }
 
 // ---------- Имена ----------
