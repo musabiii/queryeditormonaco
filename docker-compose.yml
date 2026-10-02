@@ -13,6 +13,10 @@ services:
     image: ghcr.io/musabiii/queryeditormonaco:latest
     container_name: queryeditor
     restart: unless-stopped
+    environment:
+      # Номер счётчика Яндекс Метрики (только цифры); пусто — без аналитики.
+      # Можно задать в файле .env рядом с docker-compose.yml: YANDEX_METRIKA_ID=12345678
+      YANDEX_METRIKA_ID: ${YANDEX_METRIKA_ID:-}
     expose:
       - "3000"
     networks:

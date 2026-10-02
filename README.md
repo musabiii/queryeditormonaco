@@ -23,6 +23,11 @@ docker network create nginx-net   # если сети ещё нет
 docker compose pull && docker compose up -d
 ```
 
+Аналитика на своём сервере — Яндекс Метрика: номер счётчика задаётся переменной
+`YANDEX_METRIKA_ID` (например, в файле `.env` рядом с `docker-compose.yml`), пересобирать образ
+не нужно — после изменения `docker compose up -d`. Вебвизор выключен: он записывал бы тексты
+запросов из редактора. На Vercel работает Vercel Analytics.
+
 Пакет в GitHub Container Registry по умолчанию приватный: либо сделайте его публичным
 (страница пакета → Package settings → Change visibility), либо войдите на сервере
 `docker login ghcr.io` с токеном, у которого есть право `read:packages`.

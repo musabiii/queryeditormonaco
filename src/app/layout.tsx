@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/next";
+import { YandexMetrika } from "@/components/YandexMetrika";
 import { themeInitScript } from "@/lib/theme";
 import "./globals.css";
 
@@ -21,6 +23,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           (там задана VERCEL=1): на другом хостинге скрипта /_vercel/insights нет.
         */}
         {process.env.VERCEL && <Analytics />}
+        {/* На своём сервере — Яндекс Метрика, номер счётчика в YANDEX_METRIKA_ID. */}
+        <Suspense fallback={null}>
+          <YandexMetrika />
+        </Suspense>
       </body>
     </html>
   );
