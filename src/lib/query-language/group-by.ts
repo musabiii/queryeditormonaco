@@ -35,20 +35,35 @@ const AFTER_GROUP = ["ИМЕЮЩИЕ", "HAVING", "УПОРЯДОЧИТЬ", "ORDE
 /** Слова, которые не делают выражение зависящим от строки таблицы. */
 const NOT_FIELDS = new Set(spellings(FUNCTIONS, PERIODS, PRIMITIVE_TYPES).map((word) => word.toUpperCase()));
 
+/**
+ * Где курсор может стоять:
+ * - в начале строки (пустой, с набранным «СГР…» или перед «;»/УПОРЯДОЧИТЬ… — они
+ *   уходят на строку ниже);
+ * - в конце последней строки ИЗ/ГДЕ — раздел начнётся с новой строки.
+ */
 export function groupBySuggestion(text: string, offset: number, eol = "\n"): GroupBySuggestion | null {
-  // Строка курсора: до него — пусто или начало «СГРУППИРОВАТЬ», после — пусто.
   const lineStart = text.lastIndexOf("\n", offset - 1) + 1;
   const newline = text.indexOf("\n", offset);
   const lineEnd = newline < 0 ? text.length : text[newline - 1] === "\r" ? newline - 1 : newline;
-  if (text.slice(offset, lineEnd).trim()) return null;
-  const typed = text.slice(lineStart, offset).trimStart();
-  if (typed && !GROUP_KEYWORD.startsWith(typed.toUpperCase())) return null;
+  const beforeCursor = text.slice(lineStart, offset).trimStart();
+  const afterCursor = text.slice(offset, lineEnd);
+
+  let typed = "";
+  let atLineEnd = false;
+  if (beforeCursor && !GROUP_KEYWORD.startsWith(beforeCursor.toUpperCase())) {
+    if (afterCursor.trim()) return null;
+    atLineEnd = true;
+  } else {
+    typed = beforeCursor;
+  }
+  const typedStart = offset - typed.length;
 
   const tokens = tokenize(text).filter((token) => token.kind !== "comment");
   // Только внутри запроса: после «;» курсор уже в следующем.
   const statement = splitStatements(tokens).find((s) => s.start <= offset && offset <= s.end);
   if (!statement) return null;
-  const scopeTokens = innermostScope(statement.tokens, offset).filter((token) => token.end <= lineStart || token.start >= lineEnd);
+  // Набранное «СГР» — не часть запроса.
+  const scopeTokens = innermostScope(statement.tokens, offset).filter((token) => token.end <= typedStart || token.start >= offset);
   const parts = splitTopLevel(scopeTokens, (token) => is(token, "ОБЪЕДИНИТЬ", "UNION"))
     .filter((part) => part.length)
     .map((part) => ({ start: part[0].start, part }));
@@ -60,20 +75,29 @@ export function groupBySuggestion(text: string, offset: number, eol = "\n"): Gro
 
   // Курсор — после ИЗ/ГДЕ и до следующих разделов.
   const { depthAt, from, indent, fields } = plan;
-  const before = scope.filter((token, i) => depthAt[i] === 0 && token.end <= lineStart);
-  const after = scope.filter((token, i) => depthAt[i] === 0 && token.start >= lineEnd);
+  const before = scope.filter((token, i) => depthAt[i] === 0 && token.end <= typedStart);
+  const after = scope.filter((token, i) => depthAt[i] === 0 && token.start >= offset);
   if (!before.length || before[before.length - 1].start < scope[from].start) return null;
   if (before.some((token) => is(token, ...AFTER_GROUP))) return null;
   if (after.length && !is(after[0], ...AFTER_GROUP)) return null;
 
+  // Остаток строки за курсором — только «;» или следующий раздел; они уходят ниже.
+  const rest = atLineEnd ? "" : afterCursor;
+  if (rest.trim()) {
+    const first = offset + rest.length - rest.trimStart().length;
+    if (text[first] !== ";" && after[0]?.start !== first) return null;
+  }
+
   // Набранное «сгр» продолжается в том же регистре — иначе Monaco не покажет подсказку.
-  const rest = GROUP_KEYWORD.slice(typed.length);
-  const keyword = typed + (typed && typed === typed.toLowerCase() ? rest.toLowerCase() : rest);
-  const lead = typed ? "" : indent.startsWith(text.slice(lineStart, offset)) ? indent.slice(offset - lineStart) : "";
+  const keywordRest = GROUP_KEYWORD.slice(typed.length);
+  const keyword = typed + (typed && typed === typed.toLowerCase() ? keywordRest.toLowerCase() : keywordRest);
+  const ownIndent = text.slice(lineStart, offset);
+  const lead = atLineEnd ? `${eol}${indent}` : typed ? "" : indent.startsWith(ownIndent) ? indent.slice(ownIndent.length) : "";
+  const tail = rest.trim() ? `${eol}${rest}` : "";
   return {
-    from: offset - typed.length,
+    from: typedStart,
     to: lineEnd,
-    text: `${lead}${keyword}${eol}${fieldLines(fields, indent, eol)}`,
+    text: `${lead}${keyword}${eol}${fieldLines(fields, indent, eol)}${tail}`,
   };
 }
 
