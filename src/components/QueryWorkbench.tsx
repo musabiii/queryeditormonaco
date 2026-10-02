@@ -132,7 +132,9 @@ export function QueryWorkbench({ initialQuery, sharedUntil }: Props) {
           onSelect={(query) => editorRef.current?.selectRange(query.start, query.end)}
           parameters={parameters}
           onSelectRange={(start, end) => editorRef.current?.selectRange(start, end)}
-          onInsertSnippet={(snippet) => editorRef.current?.insertSnippet(snippet)}
+          onInsertSnippet={(snippet, applyToField) =>
+            applyToField ? editorRef.current?.applyFunction(snippet) : editorRef.current?.insertSnippet(snippet)
+          }
           onAddQuery={() => editorRef.current?.appendBatchQuery()}
         />
         <AiPanel

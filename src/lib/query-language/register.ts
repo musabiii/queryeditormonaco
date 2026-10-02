@@ -1,6 +1,7 @@
 import type * as MonacoApi from "monaco-editor";
 import { registerCompletion } from "./completion/provider";
 import { formatQuery } from "./formatter";
+import { groupBySuggestion } from "./group-by";
 import { LANGUAGE_ID, languageConfiguration, monarchLanguage } from "./grammar";
 import { themes } from "./themes";
 
@@ -39,6 +40,24 @@ export function registerQueryLanguage(monaco: Monaco) {
       },
     }),
     ...registerCompletion(monaco, LANGUAGE_ID),
+    // Серым текстом — «СГРУППИРОВАТЬ ПО» с полями вне агрегатов; Tab вставляет.
+    monaco.languages.registerInlineCompletionsProvider(LANGUAGE_ID, {
+      provideInlineCompletions(model, position) {
+        const suggestion = groupBySuggestion(model.getValue(), model.getOffsetAt(position), model.getEOL());
+        if (!suggestion) return { items: [] };
+        const from = model.getPositionAt(suggestion.from);
+        const to = model.getPositionAt(suggestion.to);
+        return {
+          items: [
+            {
+              insertText: suggestion.text,
+              range: { startLineNumber: from.lineNumber, startColumn: from.column, endLineNumber: to.lineNumber, endColumn: to.column },
+            },
+          ],
+        };
+      },
+      disposeInlineCompletions() {},
+    }),
   ];
 
   for (const [name, data] of Object.entries(themes)) {

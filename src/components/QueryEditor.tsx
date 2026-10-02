@@ -5,6 +5,7 @@ import type { editor } from "monaco-editor";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 import { commentLines, uncommentLines } from "@/lib/comment-lines";
 import { loadMonaco } from "@/lib/monaco-loader";
+import { createGroupByPreview } from "./group-by-preview";
 import {
   LANGUAGE_ID,
   collectParameters,
@@ -12,6 +13,9 @@ import {
   registerQueryLanguage,
   smartInsert,
   tokenize,
+  groupBySuggestion,
+  isAggregateSnippet,
+  wrapSelectField,
   unwrapBslString,
   type BatchQuery,
   type MetadataIndex,
@@ -41,6 +45,8 @@ export type QueryEditorHandle = {
   insertText(text: string): void;
   /** Вставляет шаблон с полями для заполнения (синтаксис сниппетов Monaco). */
   insertSnippet(snippet: string): void;
+  /** Функция из дерева: применяется к полю выборки под курсором, иначе вставляется как insertSnippet. */
+  applyFunction(snippet: string): void;
   /**
    * Убирает оформление строкового литерала 1С (кавычки, «|», удвоенные кавычки)
    * в выделении или во всём тексте. false — текст не похож на литерал.
@@ -138,6 +144,13 @@ function handleTextDrop(
   };
 }
 
+/** Контроллер сниппетов Monaco — его нет в публичных типах. */
+function snippetController(instance: editor.IStandaloneCodeEditor) {
+  return instance.getContribution("snippetController2") as unknown as {
+    insert(template: string, options?: { adjustWhitespace?: boolean }): void;
+  } | null;
+}
+
 function withEditor(
   instance: editor.IStandaloneCodeEditor | null,
   action: (instance: editor.IStandaloneCodeEditor) => void,
@@ -169,6 +182,7 @@ export function QueryEditor({
   ref,
 }: Props) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const groupByRef = useRef<ReturnType<typeof createGroupByPreview> | null>(null);
   const options = useMemo<editor.IStandaloneEditorConstructionOptions>(
     () => ({ ...OPTIONS, renderWhitespace: showWhitespace ? "all" : "selection" }),
     [showWhitespace],
@@ -231,13 +245,30 @@ export function QueryEditor({
     },
     insertSnippet(snippet) {
       withEditor(editorRef.current, (instance) => {
-        // Контроллер сниппетов Monaco не входит в публичные типы.
-        const controller = instance.getContribution("snippetController2") as unknown as
-          | { insert(template: string): void }
-          | null;
         instance.pushUndoStop();
-        controller?.insert(snippet);
+        snippetController(instance)?.insert(snippet);
         instance.pushUndoStop();
+      });
+    },
+    applyFunction(snippet) {
+      withEditor(editorRef.current, (instance) => {
+        const model = instance.getModel();
+        const position = instance.getPosition();
+        if (!model || !position) return;
+        const wrap = wrapSelectField(model.getValue(), model.getOffsetAt(position), snippet);
+        instance.pushUndoStop();
+        if (wrap) {
+          const from = model.getPositionAt(wrap.start);
+          const to = model.getPositionAt(wrap.end);
+          instance.setSelection({ startLineNumber: from.lineNumber, startColumn: from.column, endLineNumber: to.lineNumber, endColumn: to.column });
+          // Выражение уже с отступами — не добавлять к ним отступ строки.
+          snippetController(instance)?.insert(wrap.snippet, { adjustWhitespace: false });
+        } else {
+          snippetController(instance)?.insert(snippet);
+        }
+        instance.pushUndoStop();
+        // Агрегат применили к полю — предложить группировку по остальным полям.
+        if (wrap && isAggregateSnippet(snippet)) groupByRef.current?.offer();
       });
     },
     unwrapCodeString() {
@@ -323,6 +354,7 @@ export function QueryEditor({
   const handleMount: OnMount = (instance, monaco) => {
     editorRef.current = instance;
     const stopDrop = handleTextDrop(instance, monaco);
+    groupByRef.current = createGroupByPreview(instance, monaco);
     instance.onDidDispose(() => {
       editorRef.current = null;
       stopDrop();
@@ -363,6 +395,23 @@ export function QueryEditor({
     };
 
     instance.onDidChangeCursorSelection(reportStatus);
+
+    // Серую подсказку Monaco запрашивает при наборе текста, но не при переходе курсора:
+    // встав на пустую строку в конце запроса с агрегатами, сразу видим «СГРУППИРОВАТЬ ПО».
+    let suggestTimer: ReturnType<typeof setTimeout> | undefined;
+    instance.onDidChangeCursorPosition(() => {
+      clearTimeout(suggestTimer);
+      suggestTimer = setTimeout(() => {
+        const model = instance.getModel();
+        const position = instance.getPosition();
+        if (!model || !position || !instance.getSelection()?.isEmpty()) return;
+        if (groupBySuggestion(model.getValue(), model.getOffsetAt(position))) {
+          instance.trigger("group-by", "editor.action.inlineSuggest.trigger", {});
+        }
+      }, 150);
+    });
+    instance.onDidDispose(() => clearTimeout(suggestTimer));
+
     instance.onDidChangeModelContent(() => {
       reportBatch();
       reportStatus();

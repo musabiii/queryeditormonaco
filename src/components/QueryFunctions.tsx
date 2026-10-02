@@ -10,10 +10,16 @@ import {
 } from "@/lib/query-language";
 
 type Props = {
-  /** Вставка шаблона с полями для заполнения. */
-  onInsert: (snippet: string) => void;
+  /**
+   * Вставка шаблона с полями для заполнения. applyToField — функция из ветки
+   * «Функции»: применить к полю выборки под курсором, если он на поле.
+   */
+  onInsert: (snippet: string, applyToField: boolean) => void;
   className?: string;
 };
+
+/** Ветка, функции которой применяются к полю выборки под курсором. */
+const FUNCTIONS_FOLDER = "Функции";
 
 /** Как в конструкторе: раскрыты «Функции», «Операторы» и «Прочее», вложенные папки свёрнуты. */
 const INITIALLY_EXPANDED = FUNCTION_CATALOG.map((folder) => `/${folder.label}`);
@@ -30,13 +36,18 @@ export function QueryFunctions({ onInsert, className = "" }: Props) {
       return next;
     });
 
-  const renderNodes = (nodes: (CatalogFolder | CatalogItem)[], depth: number, parentId: string): ReactNode =>
+  const renderNodes = (
+    nodes: (CatalogFolder | CatalogItem)[],
+    depth: number,
+    parentId: string,
+    functions = false,
+  ): ReactNode =>
     nodes.map((node) => {
       const id = `${parentId}/${node.label}`;
       if (!isCatalogFolder(node)) {
         return (
           <li key={id} role="treeitem" aria-selected={false} aria-level={depth + 1}>
-            <ItemRow item={node} depth={depth} onInsert={() => onInsert(node.snippet)} />
+            <ItemRow item={node} depth={depth} applyToField={functions} onInsert={() => onInsert(node.snippet, functions)} />
           </li>
         );
       }
@@ -44,7 +55,11 @@ export function QueryFunctions({ onInsert, className = "" }: Props) {
       return (
         <li key={id} role="treeitem" aria-selected={false} aria-expanded={open} aria-level={depth + 1}>
           <FolderRow label={node.label} depth={depth} open={open} onToggle={() => toggle(id)} />
-          {open && <ul role="group">{renderNodes(node.children, depth + 1, id)}</ul>}
+          {open && (
+            <ul role="group">
+              {renderNodes(node.children, depth + 1, id, functions || (depth === 0 && node.label === FUNCTIONS_FOLDER))}
+            </ul>
+          )}
         </li>
       );
     });
@@ -103,7 +118,8 @@ function FolderRow(props: { label: string; depth: number; open: boolean; onToggl
   );
 }
 
-function ItemRow({ item, depth, onInsert }: { item: CatalogItem; depth: number; onInsert: () => void }) {
+function ItemRow(props: { item: CatalogItem; depth: number; applyToField: boolean; onInsert: () => void }) {
+  const { item, depth, applyToField, onInsert } = props;
   const onDragStart = (event: DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData("text/plain", snippetText(item.snippet, false));
     event.dataTransfer.effectAllowed = "copy";
@@ -124,7 +140,7 @@ function ItemRow({ item, depth, onInsert }: { item: CatalogItem; depth: number; 
           moveFocus(event);
         }
       }}
-      title={`Вставить: ${snippetText(item.snippet, true)}`}
+      title={`${applyToField ? "Двойной клик — применить к полю под курсором или вставить" : "Вставить"}: ${snippetText(item.snippet, true)}`}
       className={ROW}
       // Отступ как у папки того же уровня плюс место под стрелку.
       style={{ paddingLeft: 6 + depth * 14 + 18 }}

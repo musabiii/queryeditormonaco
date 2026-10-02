@@ -24,7 +24,7 @@ type Props = {
   /** Выделяет вхождение параметра в тексте. */
   onSelectRange: (start: number, end: number) => void;
   /** Вставка шаблона из дерева функций. */
-  onInsertSnippet: (snippet: string) => void;
+  onInsertSnippet: (snippet: string, applyToField: boolean) => void;
   /** Новый запрос в конце пакета. */
   onAddQuery: () => void;
 };

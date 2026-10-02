@@ -60,3 +60,31 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* Заготовка «СГРУППИРОВАТЬ ПО» в редакторе (src/components/group-by-preview.ts). */
+.group-by-preview {
+  color: var(--muted);
+  font-style: italic;
+  white-space: pre;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.group-by-preview-hint {
+  margin-left: 2ch;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-style: normal;
+  opacity: 0.9;
+}
+
+.group-by-reminder {
+  display: inline-block;
+  margin: 2px 0 0;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--muted);
+  white-space: nowrap;
+}
