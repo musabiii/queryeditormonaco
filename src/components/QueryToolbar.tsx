@@ -13,6 +13,7 @@ type Props = {
   onUnwrap: () => boolean;
   onShowBslCode: () => void;
   getText: () => string;
+  onShare: () => void;
   showWhitespace: boolean;
   onToggleWhitespace: () => void;
   aiOpen: boolean;
@@ -65,6 +66,12 @@ export function QueryToolbar(props: Props) {
         <Divider />
 
         <CopyButton getText={props.getText} />
+        <ToolButton label="Поделиться: ссылка на запрос (хранится 30 дней)" tone="blue" onClick={props.onShare}>
+          <circle cx="12" cy="3.5" r="1.75" />
+          <circle cx="4" cy="8" r="1.75" />
+          <circle cx="12" cy="12.5" r="1.75" />
+          <path d="m5.6 7.1 4.8-2.7M5.6 8.9l4.8 2.7" />
+        </ToolButton>
       </div>
 
       <div className="ml-auto flex items-center gap-1">

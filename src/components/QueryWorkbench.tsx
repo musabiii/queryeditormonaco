@@ -18,11 +18,19 @@ import { QueryStructure } from "./QueryStructure";
 import { QueryToolbar } from "./QueryToolbar";
 import { AiPanel } from "./ai/AiPanel";
 import { BslCodeDialog } from "./BslCodeDialog";
+import { ShareDialog } from "./ShareDialog";
 import { ConfigurationTree } from "./metadata/ConfigurationTree";
 import { ConfigurationsDialog } from "./metadata/ConfigurationsDialog";
 import type { ConfigurationModel } from "@/lib/metadata/model";
 
-export function QueryWorkbench() {
+type Props = {
+  /** Текст запроса по ссылке «Поделиться»; без него — пример запроса. */
+  initialQuery?: string;
+  /** До какого момента хранится открытый по ссылке запрос. */
+  sharedUntil?: number;
+};
+
+export function QueryWorkbench({ initialQuery, sharedUntil }: Props) {
   const [scheme, setScheme] = useColorScheme();
   const [status, setStatus] = useState<EditorStatus | null>(null);
   const [queries, setQueries] = useState<BatchQuery[]>([]);
@@ -33,6 +41,8 @@ export function QueryWorkbench() {
   const [treeOpen, setTreeOpen] = useState(false);
   /** Код 1С для окна «Текст для кода 1С»; null — окно закрыто. */
   const [bslCode, setBslCode] = useState<string | null>(null);
+  /** Текст для окна «Поделиться»; null — окно закрыто. */
+  const [shareText, setShareText] = useState<string | null>(null);
   const configurations = useConfigurations();
   const activeConfiguration = configurations.active;
   const activeId = activeConfiguration?.id ?? null;
@@ -78,6 +88,7 @@ export function QueryWorkbench() {
         onUncomment={() => editorRef.current?.uncommentLines()}
         onFormat={() => editorRef.current?.format()}
         onUnwrap={() => editorRef.current?.unwrapCodeString() ?? false}
+        onShare={() => setShareText(editorRef.current?.getText() ?? "")}
         onShowBslCode={() => {
           const editor = editorRef.current;
           if (editor) setBslCode(bslQueryCode(editor.getSelectedText() || editor.getText()));
@@ -107,7 +118,7 @@ export function QueryWorkbench() {
         <div className="min-w-0 flex-1">
           <QueryEditor
             ref={editorRef}
-            defaultValue={SAMPLE_QUERY}
+            defaultValue={initialQuery ?? SAMPLE_QUERY}
             theme={scheme.id}
             onStatusChange={setStatus}
             onBatchChange={setQueries}
@@ -160,10 +171,16 @@ export function QueryWorkbench() {
             ? `Конфигурация: ${activeConfiguration.synonym ?? activeConfiguration.name}${activeConfiguration.version ? " " + activeConfiguration.version : ""}${modelNote}`
             : "Конфигурация не загружена"}
         </button>
+        {sharedUntil && (
+          <span title="Запрос открыт по ссылке «Поделиться»">
+            По ссылке, хранится до {new Date(sharedUntil).toLocaleDateString("ru-RU")}
+          </span>
+        )}
         <span>Язык запросов 1С</span>
       </footer>
 
       {bslCode !== null && <BslCodeDialog code={bslCode} onClose={() => setBslCode(null)} />}
+      {shareText !== null && <ShareDialog text={shareText} onClose={() => setShareText(null)} />}
 
       {configurationsOpen && (
         <ConfigurationsDialog configurations={configurations} onClose={() => setConfigurationsOpen(false)} />

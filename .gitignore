@@ -46,3 +46,6 @@ next-env.d.ts
 /zupfiles/
 /medicine/
 /univer/
+
+# ссылки «Поделиться» при локальном запуске (SHARE_DIR по умолчанию)
+/data/

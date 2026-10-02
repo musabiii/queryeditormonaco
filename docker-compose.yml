@@ -17,6 +17,9 @@ services:
       # Номер счётчика Яндекс Метрики (только цифры); пусто — без аналитики.
       # Можно задать в файле .env рядом с docker-compose.yml: YANDEX_METRIKA_ID=12345678
       YANDEX_METRIKA_ID: ${YANDEX_METRIKA_ID:-}
+    volumes:
+      # Запросы, которыми поделились ссылкой (хранятся 30 дней), — переживают обновления образа.
+      - queryeditor-data:/app/data
     expose:
       - "3000"
     networks:
@@ -25,3 +28,6 @@ services:
 networks:
   nginx-net:
     external: true
+
+volumes:
+  queryeditor-data:
