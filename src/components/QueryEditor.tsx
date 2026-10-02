@@ -11,6 +11,7 @@ import {
   parseBatch,
   registerQueryLanguage,
   smartInsert,
+  tokenize,
   unwrapBslString,
   type BatchQuery,
   type MetadataIndex,
@@ -49,6 +50,8 @@ export type QueryEditorHandle = {
   smartInsert(target: SmartTarget, index: MetadataIndex): void;
   /** Заменяет весь текст; действие можно отменить через Ctrl+Z. */
   replaceAll(text: string): void;
+  /** Добавляет в конец пакета новый запрос (с «;» и разделителем) и ставит курсор в него. */
+  appendBatchQuery(): void;
 };
 
 const OPTIONS: editor.IStandaloneEditorConstructionOptions = {
@@ -76,6 +79,9 @@ const OPTIONS: editor.IStandaloneEditorConstructionOptions = {
   // Перетаскивание обрабатываем сами — см. handleTextDrop.
   dropIntoEditor: { enabled: false },
 };
+
+/** Разделитель запросов пакета, как у конструктора запросов 1С. */
+const BATCH_SEPARATOR = "/".repeat(80);
 
 /** Все виды переводов строк, включая U+2028/U+2029 и NEL, — в обычный «\n». */
 function normalizeLineBreaks(text: string) {
@@ -267,6 +273,34 @@ export function QueryEditor({
         const selection = rangeOf(result.selection.start, result.selection.end);
         instance.setSelection(selection);
         instance.revealRangeInCenterIfOutsideViewport(selection);
+      });
+    },
+    appendBatchQuery() {
+      withEditor(editorRef.current, (instance) => {
+        const model = instance.getModel();
+        if (!model) return;
+        const text = model.getValue();
+        const rangeOf = (start: number, finish: number) => {
+          const from = model.getPositionAt(start);
+          const to = model.getPositionAt(finish);
+          return { startLineNumber: from.lineNumber, startColumn: from.column, endLineNumber: to.lineNumber, endColumn: to.column };
+        };
+        // Хвостовые пробелы и пустые строки заменяем — новый запрос идёт сразу после текста.
+        const end = text.trimEnd().length;
+        const query = "ВЫБРАТЬ";
+        let insert = end ? `\n\n${BATCH_SEPARATOR}\n${query}` : query;
+        // «;» — после последней лексемы, а не в конце текста: там может быть комментарий.
+        const last = tokenize(text).filter((token) => token.kind !== "comment").at(-1);
+        const needSemicolon = last && last.text !== ";";
+        if (needSemicolon && last.end === end) insert = `;${insert}`;
+        const edits = [{ range: rangeOf(end, text.length), text: insert }];
+        if (needSemicolon && last.end !== end) edits.unshift({ range: rangeOf(last.end, last.end), text: ";" });
+        instance.pushUndoStop();
+        instance.executeEdits("batch", edits);
+        instance.pushUndoStop();
+        const cursor = model.getPositionAt(model.getValueLength());
+        instance.setPosition(cursor);
+        instance.revealPositionInCenterIfOutsideViewport(cursor);
       });
     },
     replaceAll(text) {

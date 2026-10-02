@@ -24,6 +24,8 @@ type Props = {
   onSelectRange: (start: number, end: number) => void;
   /** Вставка шаблона из дерева функций. */
   onInsertSnippet: (snippet: string) => void;
+  /** Новый запрос в конце пакета. */
+  onAddQuery: () => void;
 };
 
 /** Три блока панели делят высоту поровну, каждый прокручивается сам. */
@@ -36,7 +38,15 @@ const HEADING =
  * Список запросов пакета, как на вкладке «Пакет запросов» конструктора 1С,
  * под ним — параметры запроса и дерево функций языка запросов.
  */
-export function QueryStructure({ queries, cursorOffset, onSelect, parameters, onSelectRange, onInsertSnippet }: Props) {
+export function QueryStructure({
+  queries,
+  cursorOffset,
+  onSelect,
+  onAddQuery,
+  parameters,
+  onSelectRange,
+  onInsertSnippet,
+}: Props) {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-l border-border bg-panel md:flex">
       <section aria-labelledby="query-structure" className={PANEL_SECTION}>
@@ -45,10 +55,9 @@ export function QueryStructure({ queries, cursorOffset, onSelect, parameters, on
           {queries.length > 0 && <span className="font-normal normal-case">{queries.length}</span>}
         </h2>
 
-        {queries.length === 0 ? (
-          <p className="p-3 text-sm text-muted">Запрос пуст</p>
-        ) : (
-          <ol className="min-h-0 overflow-y-auto py-1">
+        <div className="min-h-0 overflow-y-auto py-1">
+          {queries.length === 0 && <p className="px-3 py-1.5 text-sm text-muted">Запрос пуст</p>}
+          <ol>
             {queries.map((query) => {
               const active =
                 cursorOffset !== undefined && cursorOffset >= query.start && cursorOffset <= query.end;
@@ -74,7 +83,19 @@ export function QueryStructure({ queries, cursorOffset, onSelect, parameters, on
               );
             })}
           </ol>
-        )}
+          {/* Как «Добавить» на вкладке «Пакет запросов» конструктора. */}
+          <button
+            type="button"
+            onClick={onAddQuery}
+            title="Добавить запрос в конец пакета"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-muted hover:bg-border/60 hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground"
+          >
+            <svg viewBox="0 0 16 16" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.4} aria-hidden>
+              <path d="M8 3v10M3 8h10" />
+            </svg>
+            Добавить
+          </button>
+        </div>
       </section>
 
       <QueryParameters parameters={parameters} cursorOffset={cursorOffset} onSelectRange={onSelectRange} />
