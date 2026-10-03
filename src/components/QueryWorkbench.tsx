@@ -35,6 +35,8 @@ export function QueryWorkbench({ initialQuery, sharedUntil }: Props) {
   const [status, setStatus] = useState<EditorStatus | null>(null);
   const [queries, setQueries] = useState<BatchQuery[]>([]);
   const [parameters, setParameters] = useState<QueryParameter[]>([]);
+  /** Текст редактора — для фильтра «только объекты запроса» в дереве конфигурации. */
+  const [text, setText] = useState("");
   const [showWhitespace, setShowWhitespace] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [configurationsOpen, setConfigurationsOpen] = useState(false);
@@ -110,6 +112,7 @@ export function QueryWorkbench({ initialQuery, sharedUntil }: Props) {
           open={treeOpen}
           model={activeModel}
           loading={modelLoading}
+          text={text}
           onInsert={(text) => editorRef.current?.insertText(text)}
           onSmartInsert={(target, index) => editorRef.current?.smartInsert(target, index)}
           onOpenConfigurations={() => setConfigurationsOpen(true)}
@@ -123,6 +126,7 @@ export function QueryWorkbench({ initialQuery, sharedUntil }: Props) {
             onStatusChange={setStatus}
             onBatchChange={setQueries}
             onParametersChange={setParameters}
+            onTextChange={setText}
             showWhitespace={showWhitespace}
           />
         </div>

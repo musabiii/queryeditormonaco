@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { MD_KINDS, type ConfigurationModel, type MdObject } from "@/lib/metadata/model";
-import { MetadataIndex, type SmartTarget, type TableField } from "@/lib/query-language";
+import { MetadataIndex, usedObjects, type SmartTarget, type TableField } from "@/lib/query-language";
 import { ToolButton } from "../ToolButton";
 
 type Icon = "kind" | "object" | "group" | "table" | "virtual" | "field" | "value";
@@ -27,6 +27,8 @@ type Props = {
   model: ConfigurationModel | null;
   /** Есть активная конфигурация, но её модель ещё загружается. */
   loading: boolean;
+  /** Текст запроса в редакторе — для фильтра «только объекты запроса». */
+  text: string;
   onInsert: (text: string) => void;
   /** Добавление таблицы или реквизита в запрос под курсором редактора. */
   onSmartInsert: (target: SmartTarget, index: MetadataIndex) => void;
@@ -38,15 +40,18 @@ type Props = {
 const PAGE = 300;
 
 /** Дерево метаданных активной конфигурации слева от редактора. */
-export function ConfigurationTree({ open, model, loading, onInsert, onSmartInsert, onOpenConfigurations, onClose }: Props) {
+export function ConfigurationTree({ open, model, loading, text, onInsert, onSmartInsert, onOpenConfigurations, onClose }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [showAll, setShowAll] = useState<Set<string>>(new Set());
   const [width, setWidth] = useState(320);
+  /** Только объекты, которые уже есть в тексте запроса. */
+  const [onlyUsed, setOnlyUsed] = useState(false);
   const index = useMemo(() => (model ? new MetadataIndex(model) : null), [model]);
 
   const query = search.trim().toLowerCase();
-  const roots = useMemo(() => (index ? kindNodes(index, query) : []), [index, query]);
+  const used = useMemo(() => (index && onlyUsed ? usedObjects(text, index) : null), [index, onlyUsed, text]);
+  const roots = useMemo(() => (index ? kindNodes(index, query, used) : []), [index, query, used]);
 
   const toggle = (id: string) =>
     setExpanded((set) => {
@@ -56,8 +61,8 @@ export function ConfigurationTree({ open, model, loading, onInsert, onSmartInser
       return next;
     });
 
-  // При поиске группы видов раскрыты — иначе совпадения не видно.
-  const isExpanded = (node: TreeNode, depth: number) => (query && depth === 0) || expanded.has(node.id);
+  // При поиске и фильтре группы видов раскрыты — иначе совпадения не видно.
+  const isExpanded = (node: TreeNode, depth: number) => ((query || used) && depth === 0) || expanded.has(node.id);
 
   const renderNodes = (nodes: TreeNode[], depth: number): ReactNode => {
     const parentId = nodes[0]?.id.split("/").slice(0, -1).join("/") ?? "";
@@ -112,6 +117,15 @@ export function ConfigurationTree({ open, model, loading, onInsert, onSmartInser
       <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border pr-1 pl-3">
         <h2 className="truncate text-xs font-semibold tracking-wide text-muted uppercase">Конфигурация</h2>
         <div className="ml-auto flex">
+          {model && (
+            <ToolButton
+              label={onlyUsed ? "Показать все объекты" : "Только объекты из запроса"}
+              pressed={onlyUsed}
+              onClick={() => setOnlyUsed((value) => !value)}
+            >
+              <path d="M2.5 3.5h11l-4.25 5v4l-2.5 1.25V8.5z" />
+            </ToolButton>
+          )}
           <ToolButton label="Конфигурации" onClick={onOpenConfigurations}>
             <ellipse cx="8" cy="3.75" rx="5" ry="2" />
             <path d="M3 3.75v8.5c0 1.1 2.24 2 5 2s5-.9 5-2v-8.5M3 8c0 1.1 2.24 2 5 2s5-.9 5-2" />
@@ -156,7 +170,9 @@ export function ConfigurationTree({ open, model, loading, onInsert, onSmartInser
             />
           </div>
           {roots.length === 0 ? (
-            <p className="p-3 text-sm text-muted">Ничего не найдено</p>
+            <p className="p-3 text-sm text-muted">
+              {used && !used.size ? "В запросе нет объектов конфигурации" : "Ничего не найдено"}
+            </p>
           ) : (
             <ul role="tree" aria-label="Объекты конфигурации" className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto py-1 text-sm">
               {renderNodes(roots, 0)}
@@ -290,9 +306,13 @@ function NodeIcon({ icon }: { icon: Icon }) {
 
 // ---------- Построение узлов ----------
 
-function kindNodes(index: MetadataIndex, query: string): TreeNode[] {
+/** used — показывать только эти объекты (фильтр «только объекты из запроса»). */
+function kindNodes(index: MetadataIndex, query: string, used: Set<MdObject> | null): TreeNode[] {
   return MD_KINDS.flatMap(({ kind, plural, queryName }) => {
-    const all = index.objects(kind).sort((a, b) => a.name.localeCompare(b.name, "ru"));
+    const all = index
+      .objects(kind)
+      .filter((o) => !used || used.has(o))
+      .sort((a, b) => a.name.localeCompare(b.name, "ru"));
     const objects = query
       ? all.filter((o) => o.name.toLowerCase().includes(query) || o.synonym?.toLowerCase().includes(query))
       : all;

@@ -16,5 +16,6 @@ export { smartInsert, type SmartTarget } from "./smart-insert";
 export { wrapSelectField } from "./field-function";
 export { groupByProposal, groupBySuggestion, isAggregateSnippet, type GroupByProposal } from "./group-by";
 export { queryTablesStructure, type TablesStructure } from "./table-structure";
+export { usedObjects } from "./used-objects";
 export { setCompletionMetadata } from "./completion/provider";
 export { MetadataIndex, type TableField } from "./completion/metadata-index";

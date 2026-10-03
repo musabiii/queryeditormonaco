@@ -167,6 +167,8 @@ type Props = {
   onStatusChange?: (status: EditorStatus) => void;
   onBatchChange?: (queries: BatchQuery[]) => void;
   onParametersChange?: (parameters: QueryParameter[]) => void;
+  /** Текст после каждого изменения — например, для фильтра дерева конфигурации. */
+  onTextChange?: (text: string) => void;
   /** Показывать пробелы и табы во всём тексте, а не только в выделении. */
   showWhitespace?: boolean;
   ref?: Ref<QueryEditorHandle>;
@@ -178,6 +180,7 @@ export function QueryEditor({
   onStatusChange,
   onBatchChange,
   onParametersChange,
+  onTextChange,
   showWhitespace = false,
   ref,
 }: Props) {
@@ -392,6 +395,7 @@ export function QueryEditor({
       const text = model.getValue();
       onBatchChange?.(parseBatch(text));
       onParametersChange?.(collectParameters(text));
+      onTextChange?.(text);
     };
 
     instance.onDidChangeCursorSelection(reportStatus);
