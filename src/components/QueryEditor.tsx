@@ -18,6 +18,7 @@ import {
   completionMetadata,
   FIELD_DRAG_TYPE,
   shouldListAliases,
+  BATCH_SEPARATOR,
   tokenize,
   groupBySuggestion,
   isAggregateSnippet,
@@ -96,8 +97,6 @@ const OPTIONS: editor.IStandaloneEditorConstructionOptions = {
   linkedEditing: true,
 };
 
-/** Разделитель запросов пакета, как у конструктора запросов 1С. */
-const BATCH_SEPARATOR = "/".repeat(80);
 /** Сколько пустых строк оставить под добавленным запросом. */
 const TRAILING_LINES = 5;
 

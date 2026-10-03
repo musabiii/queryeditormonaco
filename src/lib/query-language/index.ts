@@ -18,6 +18,6 @@ export { groupByProposal, groupBySuggestion, isAggregateSnippet, type GroupByPro
 export { queryTablesStructure, type TablesStructure } from "./table-structure";
 export { usedObjects } from "./used-objects";
 export { tempTablesOf } from "./completion/query-context";
-export { newQueryProposal, type NewQueryProposal } from "./new-query";
+export { BATCH_SEPARATOR, newQueryProposal, type NewQueryProposal } from "./new-query";
 export { completionMetadata, setCompletionMetadata, shouldListAliases } from "./completion/provider";
 export { MetadataIndex, type TableField } from "./completion/metadata-index";

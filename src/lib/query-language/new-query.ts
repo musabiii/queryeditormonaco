@@ -42,6 +42,8 @@ export function newQueryProposal(text: string, offset: number, index: MetadataIn
   // Курсор в конце пути, дальше на строке пусто.
   const lineEnd = text.indexOf("\n", offset);
   if (text.slice(offset, lineEnd < 0 ? text.length : lineEnd).trim()) return null;
+  const separator = nextQueryProposal(text, offset, tokens, eol);
+  if (separator) return separator;
   if (tokens.some((token) => token.kind !== "word" && token.kind !== "symbol" && token.start < offset && offset <= token.end)) return null;
 
   const statement = splitStatements(tokens.filter((token) => token.kind !== "comment")).find(
@@ -74,6 +76,34 @@ export function newQueryProposal(text: string, offset: number, index: MetadataIn
   // Соединение подбирается по метаданным — без конфигурации только новый запрос.
   if (!index || !isAliasListPosition(text, pathTokens[0].start)) return null;
   return joinedTable(text, offset, path, pathTokens[0].start, index, eol);
+}
+
+/** Разделитель запросов пакета, как у конструктора запросов 1С. */
+export const BATCH_SEPARATOR = "/".repeat(80);
+
+/**
+ * В конце пакета набрано «///» — следующий запрос: «;» после последнего запроса
+ * (если её нет), разделитель на всю ширину и «ВЫБРАТЬ», курсор строкой ниже.
+ */
+function nextQueryProposal(text: string, offset: number, tokens: Token[], eol: string): NewQueryProposal | null {
+  const lineStart = text.lastIndexOf("\n", offset - 1) + 1;
+  const typed = text.slice(lineStart, offset);
+  if (!/^\s*\/{3,}$/.test(typed)) return null;
+  const code = tokens.filter((token) => token.kind !== "comment");
+  // Только в конце пакета и после запроса.
+  if (code.some((token) => token.start >= offset)) return null;
+  const last = code.filter((token) => token.end <= lineStart).at(-1);
+  if (!last) return null;
+
+  const slashes = lineStart + typed.length - typed.trimStart().length;
+  const semicolon = last.text === ";" ? [] : [{ from: last.end, to: last.end, text: ";" }];
+  const body = `${BATCH_SEPARATOR}${eol}ВЫБРАТЬ${eol}\t`;
+  return {
+    edits: [...semicolon, { from: slashes, to: offset, text: body }],
+    cursor: slashes + semicolon.length + body.length,
+    preview: [{ offset, lines: [BATCH_SEPARATOR, "ВЫБРАТЬ"] }],
+    hint: semicolon.length ? "Tab — новый запрос пакета (и «;» после предыдущего), Esc — нет" : "Tab — новый запрос пакета, Esc — нет",
+  };
 }
 
 function wholeQuery(text: string, offset: number, path: string[], first: Token, select: Token | undefined, eol: string): NewQueryProposal {
