@@ -3,7 +3,7 @@
 import { useMemo, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { MD_KINDS, type ConfigurationModel, type MdObject } from "@/lib/metadata/model";
 import { FIELD_DRAG_TYPE, MetadataIndex, tempTablesOf, usedObjects, type SmartTarget, type TableField } from "@/lib/query-language";
-import { ToolButton } from "../ToolButton";
+import { TONES, ToolButton, type ToolTone } from "../ToolButton";
 
 type Icon = "kind" | "object" | "group" | "table" | "virtual" | "field" | "value";
 
@@ -283,6 +283,16 @@ function TreeRow(props: { node: TreeNode; depth: number; open: boolean; onToggle
   );
 }
 
+/** Цвет значка по типу узла: папки, объекты, таблицы, поля, значения; верхний уровень — серый. */
+const ICON_TONES: Partial<Record<Icon, ToolTone>> = {
+  group: "amber",
+  object: "blue",
+  table: "teal",
+  virtual: "teal",
+  field: "green",
+  value: "purple",
+};
+
 function NodeIcon({ icon }: { icon: Icon }) {
   const paths: Record<Icon, ReactNode> = {
     kind: <path d="M2 4.5h4l1.5 1.5H14v6.5H2z" />,
@@ -304,7 +314,7 @@ function NodeIcon({ icon }: { icon: Icon }) {
     value: <path d="M4 8h8M8 4v8" />,
   };
   return (
-    <svg viewBox="0 0 16 16" className="size-3.5 shrink-0 text-muted" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden>
+    <svg viewBox="0 0 16 16" className={`size-3.5 shrink-0 ${ICON_TONES[icon] ? TONES[ICON_TONES[icon]] : "text-muted"}`} fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden>
       {paths[icon]}
     </svg>
   );

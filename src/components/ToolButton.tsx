@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 
 /** Цвет значка по смыслу команды; классы целиком — чтобы Tailwind их нашёл. */
-const TONES = {
+export const TONES = {
   amber: "text-icon-amber",
   green: "text-icon-green",
   red: "text-icon-red",
