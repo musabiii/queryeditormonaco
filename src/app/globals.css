@@ -61,6 +61,22 @@ body {
   color: var(--foreground);
 }
 
+/*
+ * Контекстное меню Monaco рисуется в shadow DOM вне редактора, куда не доходят
+ * переменные темы Monaco, — без них фон меню прозрачный. Пользовательские
+ * свойства наследуются в shadow DOM, поэтому задаём их хосту из цветов схемы.
+ */
+.shadow-root-host {
+  --vscode-menu-background: var(--background);
+  --vscode-menu-foreground: var(--foreground);
+  --vscode-menu-border: var(--border);
+  --vscode-menu-separatorBackground: var(--border);
+  --vscode-menu-selectionBackground: color-mix(in srgb, var(--icon-blue) 18%, var(--background));
+  --vscode-menu-selectionForeground: var(--foreground);
+  --vscode-menu-selectionBorder: transparent;
+  --vscode-widget-shadow: rgb(0 0 0 / 0.25);
+}
+
 /* Заготовка «СГРУППИРОВАТЬ ПО» в редакторе (src/components/group-by-preview.ts). */
 .group-by-preview {
   color: var(--muted);
