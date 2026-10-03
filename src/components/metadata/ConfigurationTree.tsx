@@ -325,7 +325,10 @@ function objectNode(index: MetadataIndex, object: MdObject, id: string, queryNam
 
 function objectChildren(index: MetadataIndex, object: MdObject, id: string, full: string): TreeNode[] {
   const all = index.fieldsOf({ type: "object", object });
-  const groups: TreeNode[] = [];
+  // «Ссылка» нужна чаще остальных стандартных реквизитов — первой, как в конструкторе 1С.
+  const reference = all.filter((f) => f.group === "standard" && f.name === "Ссылка");
+  const standard = all.filter((f) => f.group === "standard" && f.name !== "Ссылка");
+  const groups: TreeNode[] = fieldNodes(reference, id, full.split("."));
   const addGroup = (key: string, label: string, fields: TableField[]) => {
     if (fields.length) {
       groups.push({ id: `${id}/${key}`, label, detail: String(fields.length), icon: "group", children: () => fieldNodes(fields, `${id}/${key}`, full.split(".")) });
@@ -368,7 +371,7 @@ function objectChildren(index: MetadataIndex, object: MdObject, id: string, full
         object.values!.map((value) => ({ id: `${id}/values/${value}`, label: value, icon: "value" as const, insert: `ЗНАЧЕНИЕ(${full}.${value})` })),
     });
   }
-  addGroup("standard", "Стандартные реквизиты", all.filter((f) => f.group === "standard"));
+  addGroup("standard", "Стандартные реквизиты", standard);
   return groups;
 }
 
