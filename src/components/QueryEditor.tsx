@@ -15,7 +15,7 @@ import {
   tableAlias,
   completionMetadata,
   FIELD_DRAG_TYPE,
-  isAfterWhere,
+  shouldListAliases,
   tokenize,
   groupBySuggestion,
   isAggregateSnippet,
@@ -438,12 +438,14 @@ export function QueryEditor({
     instance.onDidChangeModelContent((event) => {
       reportBatch();
       reportStatus();
-      // Enter или Tab после «ГДЕ» — сразу список псевдонимов (пробел Monaco обрабатывает сам).
-      const typed = event.changes.length === 1 ? event.changes[0].text : "";
+      // Enter или Tab после «ВЫБРАТЬ», запятой, «ГДЕ», «ПО», «И»… — сразу список псевдонимов (пробел Monaco обрабатывает сам).
+      // Enter может прийти несколькими правками (перевод строки и удаление пробелов в конце строки).
+      const typed = event.changes.map((change) => change.text);
       const model = instance.getModel();
       const position = instance.getPosition();
-      if (model && position && typed.trim() === "" && /[\n\t]/.test(typed) && !event.isUndoing && !event.isRedoing) {
-        if (isAfterWhere(model.getValue(), model.getOffsetAt(position))) {
+      const whitespaceOnly = typed.every((text) => text.trim() === "") && typed.some((text) => /[\n\t]/.test(text));
+      if (model && position && whitespaceOnly && !event.isUndoing && !event.isRedoing && !event.isFlush) {
+        if (shouldListAliases(model.getValue(), model.getOffsetAt(position))) {
           setTimeout(() => instance.trigger("where", "editor.action.triggerSuggest", {}));
         }
       }

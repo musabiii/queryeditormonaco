@@ -18,5 +18,5 @@ export { groupByProposal, groupBySuggestion, isAggregateSnippet, type GroupByPro
 export { queryTablesStructure, type TablesStructure } from "./table-structure";
 export { usedObjects } from "./used-objects";
 export { tempTablesOf } from "./completion/query-context";
-export { completionMetadata, isAfterWhere, setCompletionMetadata } from "./completion/provider";
+export { completionMetadata, setCompletionMetadata, shouldListAliases } from "./completion/provider";
 export { MetadataIndex, type TableField } from "./completion/metadata-index";

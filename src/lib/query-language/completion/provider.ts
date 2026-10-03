@@ -46,23 +46,64 @@ const IDENT = "[\\p{L}_][\\p{L}\\p{N}_]*";
 /** Цепочка «А.Б.» и недописанное слово перед курсором. */
 const CHAIN_BEFORE_CURSOR = new RegExp(`((?:${IDENT}\\s*\\.\\s*)*)(${IDENT})?$`, "u");
 const WORD_AT = new RegExp(IDENT, "gu");
-/** «ГДЕ», «И», «ИЛИ», «НЕ» и пробел или перевод строки перед курсором. */
-const CONDITION_WORD = /(?:^|[^\p{L}\p{N}_])(ГДЕ|WHERE|И|AND|ИЛИ|OR|НЕ|NOT)\s+$/iu;
-/** Разделы запроса: по ближайшему из них слева понятно, что курсор в ГДЕ. */
+/**
+ * Слово или запятая перед курсором, за которыми начинается выражение,
+ * и пробел или перевод строки после них.
+ */
+const ALIAS_TRIGGER =
+  /(?:(?:^|[^\p{L}\p{N}_])(ГДЕ|WHERE|И|AND|ИЛИ|OR|НЕ|NOT|ПО|ON|BY|ВЫБРАТЬ|SELECT|РАЗЛИЧНЫЕ|DISTINCT|РАЗРЕШЕННЫЕ|ALLOWED|КОГДА|WHEN|ТОГДА|THEN|ИНАЧЕ|ELSE|ИМЕЮЩИЕ|HAVING)|(?:ПЕРВЫЕ|TOP)\s+\d+|(,))\s+$/iu;
+/** Функции, первый аргумент которых обычно поле: после «СУММА(» — псевдонимы. */
+const FIELD_FUNCTIONS = [
+  "СУММА", "SUM", "КОЛИЧЕСТВО", "COUNT", "МАКСИМУМ", "MAX", "МИНИМУМ", "MIN", "СРЕДНЕЕ", "AVG",
+  "ЕСТЬNULL", "ISNULL", "ВЫРАЗИТЬ", "CAST", "ПРЕДСТАВЛЕНИЕ", "PRESENTATION", "ПРЕДСТАВЛЕНИЕССЫЛКИ", "REFPRESENTATION",
+  "ТИПЗНАЧЕНИЯ", "VALUETYPE", "ПОДСТРОКА", "SUBSTRING", "СТРОКА", "STRING", "ДЛИНАСТРОКИ", "STRINGLENGTH",
+  "ВРЕГ", "UPPER", "НРЕГ", "LOWER", "СОКРЛ", "TRIML", "СОКРП", "TRIMR", "СОКРЛП", "TRIMALL", "ЛЕВ", "LEFT", "ПРАВ", "RIGHT",
+  "ГОД", "YEAR", "КВАРТАЛ", "QUARTER", "МЕСЯЦ", "MONTH", "ДЕНЬГОДА", "DAYOFYEAR", "ДЕНЬ", "DAY", "НЕДЕЛЯ", "WEEK",
+  "ДЕНЬНЕДЕЛИ", "WEEKDAY", "ЧАС", "HOUR", "МИНУТА", "MINUTE", "СЕКУНДА", "SECOND",
+  "НАЧАЛОПЕРИОДА", "BEGINOFPERIOD", "КОНЕЦПЕРИОДА", "ENDOFPERIOD", "ДОБАВИТЬКДАТЕ", "DATEADD", "РАЗНОСТЬДАТ", "DATEDIFF",
+  "ОКР", "ROUND", "ЦЕЛ", "INT", "ABS",
+];
+const FUNCTION_OPEN = new RegExp(`(?:^|[^\\p{L}\\p{N}_])(?:${FIELD_FUNCTIONS.join("|")})\\s*\\(\\s*$`, "iu");
+/** Разделы запроса: по ближайшему из них слева понятно, где курсор. */
 const CLAUSES = new Set(["ВЫБРАТЬ", "SELECT", "ИЗ", "FROM", "ПО", "ON", "BY", "ГДЕ", "WHERE", "СГРУППИРОВАТЬ", "GROUP", "ИМЕЮЩИЕ", "HAVING", "УПОРЯДОЧИТЬ", "ORDER", "ИТОГИ", "TOTALS", "ОБЪЕДИНИТЬ", "UNION", "ПОМЕСТИТЬ", "INTO"]);
+/** «ПО» после этих слов — не условие соединения. */
+const NOT_JOIN_BY = new Set(["СГРУППИРОВАТЬ", "GROUP", "УПОРЯДОЧИТЬ", "ORDER", "ИНДЕКСИРОВАТЬ", "INDEX", "ИЕРАРХИИ", "HIERARCHY"]);
+const GROUP_WORDS = new Set(["СГРУППИРОВАТЬ", "GROUP"]);
+/** После этих слов выражение начинается всегда. */
+const EXPRESSION_START = new Set([
+  "ВЫБРАТЬ", "SELECT", "РАЗЛИЧНЫЕ", "DISTINCT", "РАЗРЕШЕННЫЕ", "ALLOWED", "ПЕРВЫЕ",
+  "ГДЕ", "WHERE", "ИМЕЮЩИЕ", "HAVING", "КОГДА", "WHEN", "ТОГДА", "THEN", "ИНАЧЕ", "ELSE",
+]);
 
 /**
- * Начало условия в разделе ГДЕ — пора выбирать таблицу: после «ГДЕ», а также после
- * «И», «ИЛИ», «НЕ» внутри ГДЕ (кроме «И» в «МЕЖДУ … И …»).
+ * Начало выражения, где пора выбирать таблицу:
+ * - после «ВЫБРАТЬ» (и РАЗЛИЧНЫЕ, ПЕРВЫЕ N) и запятой в его списке;
+ * - после «ГДЕ», «ИМЕЮЩИЕ», «ПО» соединения и «И», «ИЛИ», «НЕ» в этих условиях
+ *   (кроме «И» в «МЕЖДУ … И …»);
+ * - после «СГРУППИРОВАТЬ ПО» и запятой в нём;
+ * - после «КОГДА», «ТОГДА», «ИНАЧЕ» и скобки функций вроде СУММА(, ЕСТЬNULL(, ГОД(.
  */
-export function isAfterWhere(text: string, offset: number): boolean {
-  const match = CONDITION_WORD.exec(text.slice(Math.max(0, offset - 100), offset));
-  if (!match || insideStringOrComment(text, offset)) return false;
-  const word = match[1].toUpperCase();
-  if (word === "ГДЕ" || word === "WHERE") return true;
+export function isAliasListPosition(text: string, offset: number): boolean {
+  // Комментарий в конце строки («ФЛ.Наименование, // …» и Enter) не мешает.
+  const before = text.slice(Math.max(0, offset - 200), offset).replace(/\/\/[^\n]*/g, "");
+  if (insideStringOrComment(text, offset)) return false;
+  if (FUNCTION_OPEN.test(before)) return true;
+  const match = ALIAS_TRIGGER.exec(before);
+  if (!match) return false;
+  const comma = Boolean(match[2]);
+  const word = comma ? "," : (match[1] ?? "ПЕРВЫЕ").toUpperCase();
+  if (EXPRESSION_START.has(word)) return true;
 
-  // Слова до «И/ИЛИ/НЕ» на том же уровне скобок: ближайший раздел должен быть ГДЕ.
   const tokens = tokenize(text).filter((token) => token.kind !== "comment" && token.end <= offset);
+  // «ПО» соединения или «СГРУППИРОВАТЬ ПО», но не «УПОРЯДОЧИТЬ ПО» и т.п.
+  const byAllowed = (i: number) => {
+    const previous = upperText(tokens[i - 1]);
+    return !NOT_JOIN_BY.has(previous) || GROUP_WORDS.has(previous);
+  };
+  if (word === "ПО" || word === "ON" || word === "BY") return byAllowed(tokens.length - 1);
+
+  // Слева на том же уровне скобок: ближайший раздел — ВЫБРАТЬ или СГРУППИРОВАТЬ ПО
+  // (для запятой), ГДЕ, ИМЕЮЩИЕ, ПО соединения или КОГДА (для И/ИЛИ/НЕ).
   tokens.pop();
   let depth = 0;
   let seenAnd = false;
@@ -70,35 +111,71 @@ export function isAfterWhere(text: string, offset: number): boolean {
     const token = tokens[i];
     if (token.text === ")") depth++;
     else if (token.text === "(") {
-      // Начало скобки — условие внутри «( … И |» продолжается левее.
-      if (depth === 0) continue;
+      // Запятая в скобках — аргументы функции; условие в скобках продолжается левее.
+      if (depth === 0) {
+        if (comma) return false;
+        continue;
+      }
       depth--;
     } else if (token.text === ";") return false;
     if (depth > 0 || token.kind !== "word") continue;
     const upper = token.text.toUpperCase();
+    if (comma) {
+      if (upper === "ПО" || upper === "BY") return GROUP_WORDS.has(upperText(tokens[i - 1]));
+      if (CLAUSES.has(upper)) return upper === "ВЫБРАТЬ" || upper === "SELECT";
+      continue;
+    }
     if ((upper === "И" || upper === "AND") && !seenAnd) seenAnd = true;
     if ((upper === "МЕЖДУ" || upper === "BETWEEN") && (word === "И" || word === "AND") && !seenAnd) return false;
-    if (CLAUSES.has(upper)) return upper === "ГДЕ" || upper === "WHERE";
+    if (upper === "КОГДА" || upper === "WHEN") return true;
+    if (upper === "ПО" || upper === "ON") return !NOT_JOIN_BY.has(upperText(tokens[i - 1]));
+    if (CLAUSES.has(upper)) return upper === "ГДЕ" || upper === "WHERE" || upper === "ИМЕЮЩИЕ" || upper === "HAVING";
   }
   return false;
 }
 
+/** Курсор в условии ПО соединения (не СГРУППИРОВАТЬ ПО и т.п.). */
+function inJoinCondition(text: string, offset: number): boolean {
+  const tokens = tokenize(text).filter((token) => token.kind !== "comment" && token.end <= offset);
+  let depth = 0;
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const token = tokens[i];
+    if (token.text === ")") depth++;
+    else if (token.text === "(") {
+      if (depth > 0) depth--;
+    } else if (token.text === ";") return false;
+    if (depth > 0 || token.kind !== "word") continue;
+    const upper = token.text.toUpperCase();
+    if (upper === "ПО" || upper === "ON") return !NOT_JOIN_BY.has(upperText(tokens[i - 1]));
+    if (CLAUSES.has(upper)) return false;
+  }
+  return false;
+}
+
+/** Есть ли что предложить: позиция подходит и в запросе есть таблицы с псевдонимами. */
+export function shouldListAliases(text: string, offset: number): boolean {
+  return isAliasListPosition(text, offset) && analyzeQuery(text, offset, currentIndex()).sources.size > 0;
+}
+
+const upperText = (token: { text: string } | undefined) => token?.text.toUpperCase() ?? "";
+
 /** «Псевдоним.Поле = » перед курсором (возможно, с начатым словом) — сравнение с полем. */
-const COMPARISON_BEFORE_CURSOR = new RegExp(`(${IDENT}(?:\\s*\\.\\s*${IDENT})+)\\s*(?:=|<>)\\s*(${IDENT})?$`, "u");
+const COMPARISON_BEFORE_CURSOR = new RegExp(`(${IDENT}(?:\\s*\\.\\s*${IDENT})+)\\s*(?:<>|<=|>=|=|<|>)\\s*(${IDENT})?$`, "u");
 
 export function registerCompletion(monaco: Monaco, languageId: string): MonacoApi.IDisposable[] {
   const { CompletionItemKind: Kind, CompletionItemInsertTextRule: Rule } = monaco.languages;
 
   const completion = monaco.languages.registerCompletionItemProvider(languageId, {
     // Пробел — только чтобы после «Поле = » сразу показать значения.
-    triggerCharacters: [".", " "],
+    triggerCharacters: [".", " ", "("],
     provideCompletionItems(model, position, trigger) {
       const text = model.getValue();
       const offset = model.getOffsetAt(position);
       if (insideStringOrComment(text, offset)) return { suggestions: [] };
 
       const line = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
-      const bySpace = trigger.triggerCharacter === " ";
+      // Пробел и «(» — только чтобы сразу показать псевдонимы или значения, иначе список не нужен.
+      const bySpace = trigger.triggerCharacter === " " || trigger.triggerCharacter === "(";
       const match = CHAIN_BEFORE_CURSOR.exec(line);
       const chain = (match?.[1] ?? "").split(".").map((s) => s.trim()).filter(Boolean);
       const prefix = match?.[2] ?? "";
@@ -117,27 +194,30 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
       // «Т.Поле = » — параметр, значения перечисления, предопределённые элементы и пустая ссылка;
       // по пробелу — только они, по Ctrl+Space — сверху общего списка.
       const comparison = COMPARISON_BEFORE_CURSOR.exec(line);
-      const valueItems = comparison ? comparisonValues(comparison[1], context, index) : [];
-      // После «ГДЕ » — псевдонимы таблиц запроса; выбранный дополняется точкой и списком полей.
+      // В условии соединения справа обычно поле другой таблицы: псевдонимы вместо параметра.
+      const joinComparison = Boolean(comparison) && inJoinCondition(text, offset);
+      const valueItems = comparison ? comparisonValues(comparison[1], context, index, !joinComparison) : [];
+      // После «ВЫБРАТЬ », запятой в ВЫБРАТЬ, «ГДЕ », «ПО », «И »… — псевдонимы таблиц запроса;
+      // выбранный дополняется точкой и списком полей.
       // incomplete: начатое слово запрашивает полный список заново.
-      const afterWhere = !prefix && chain.length === 0 && isAfterWhere(text, offset);
-      const aliasItems = afterWhere
+      const aliasPosition = !prefix && chain.length === 0 && (joinComparison || isAliasListPosition(text, offset));
+      const aliasItems = aliasPosition
         ? [...context.sources.values()].map((source, i) =>
             item({
               label: source.alias,
               kind: Kind.Variable,
               insertText: `${source.alias}.`,
               detail: describeSource(source.table, index),
-              sortText: String(i).padStart(4, "0"), // в порядке таблиц в ИЗ
+              sortText: `!0${String(i).padStart(4, "0")}`, // в порядке таблиц в ИЗ, перед значениями
               command: { id: "editor.action.triggerSuggest", title: "Поля" },
             }),
           )
         : [];
       if (bySpace) {
-        if (comparison && !comparison[2]) return { suggestions: valueItems.map(item) };
+        if (comparison && !comparison[2]) return { suggestions: [...aliasItems, ...valueItems.map(item)] };
         return { suggestions: aliasItems };
       }
-      if (aliasItems.length) return { suggestions: aliasItems, incomplete: true };
+      if (aliasItems.length) return { suggestions: [...aliasItems, ...valueItems.map(item)], incomplete: true };
 
       // После точки: объекты вида, таблицы объекта или поля.
       if (chain.length > 0) {
@@ -176,15 +256,20 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
   });
 
   /**
-   * Варианты значения для сравнения с полем: всегда параметр «&ИмяПоля», для булева —
+   * Варианты значения для сравнения с полем: параметр «&ИмяПоля» (кроме условий соединения), для булева —
    * ИСТИНА и ЛОЖЬ, для ссылочных типов — ЗНАЧЕНИЕ(Перечисление.Пол.Мужской) и т.п.
    */
-  function comparisonValues(rawPath: string, context: QueryContext, index: MetadataIndex | null): Omit<CompletionItem, "range">[] {
+  function comparisonValues(
+    rawPath: string,
+    context: QueryContext,
+    index: MetadataIndex | null,
+    withParameter: boolean,
+  ): Omit<CompletionItem, "range">[] {
     const path = rawPath.split(".").map((part) => part.trim());
     const parameter = `&${path[path.length - 1]}`;
-    const items: Omit<CompletionItem, "range">[] = [
-      { label: parameter, kind: Kind.Variable, insertText: parameter, detail: "Параметр запроса", sortText: "!0" },
-    ];
+    const items: Omit<CompletionItem, "range">[] = withParameter
+      ? [{ label: parameter, kind: Kind.Variable, insertText: parameter, detail: "Параметр запроса", sortText: "!0" }]
+      : [];
     const field = index && fieldAtPath(path, context, index);
     if (!index || !field) return items;
     let order = 0;
