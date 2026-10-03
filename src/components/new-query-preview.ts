@@ -1,8 +1,8 @@
 /**
- * Заготовка запроса по таблице (new-query.ts): в пустом блоке набран путь
- * «Справочник.МедицинскиеКарты» — под строкой серым показывается готовый
- * запрос. Tab — вставить, курсор встаёт после «МедицинскиеКарты.» и сразу
- * открывается список реквизитов; Esc, набор текста или перемещение курсора — убрать.
+ * Заготовка по набранному пути к таблице (new-query.ts): в пустом блоке — весь
+ * запрос, в запросе с ИЗ — соединение с этой таблицей. Серым показывается на своём
+ * месте; Tab — вставить, курсор встаёт после «Псевдоним.» и сразу открывается
+ * список реквизитов; Esc, набор текста или перемещение курсора — убрать.
  */
 
 import type * as MonacoApi from "monaco-editor";
@@ -15,8 +15,8 @@ const CONTEXT_KEY = "queryeditor.newQueryPreview";
 
 export function createNewQueryPreview(instance: editor.IStandaloneCodeEditor, monaco: Monaco) {
   const shown = instance.createContextKey<boolean>(CONTEXT_KEY, false);
-  let pending: { proposal: NewQueryProposal; versionId: number } | null = null;
-  let zoneId: string | null = null;
+  let pending: { proposal: NewQueryProposal; offset: number; versionId: number } | null = null;
+  let zoneIds: string[] = [];
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const dismiss = () => {
@@ -24,11 +24,9 @@ export function createNewQueryPreview(instance: editor.IStandaloneCodeEditor, mo
     if (!pending) return;
     pending = null;
     shown.set(false);
-    if (zoneId) {
-      const id = zoneId;
-      instance.changeViewZones((accessor) => accessor.removeZone(id));
-      zoneId = null;
-    }
+    const ids = zoneIds;
+    zoneIds = [];
+    instance.changeViewZones((accessor) => ids.forEach((id) => accessor.removeZone(id)));
   };
 
   const accept = () => {
@@ -37,37 +35,20 @@ export function createNewQueryPreview(instance: editor.IStandaloneCodeEditor, mo
     dismiss();
     if (!current || !model || model.getVersionId() !== current.versionId) return;
     const { proposal } = current;
-    const from = model.getPositionAt(proposal.from);
-    const to = model.getPositionAt(proposal.to);
+    const edits = proposal.edits.map((edit) => ({
+      range: monaco.Range.fromPositions(model.getPositionAt(edit.from), model.getPositionAt(edit.to)),
+      text: edit.text,
+    }));
     instance.pushUndoStop();
-    instance.executeEdits("new-query", [{ range: monaco.Range.fromPositions(from, to), text: proposal.text }], () => {
-      const cursor = model.getPositionAt(proposal.from + proposal.cursor);
-      return [monaco.Selection.fromPositions(cursor)];
-    });
+    instance.executeEdits("new-query", edits, () => [monaco.Selection.fromPositions(model.getPositionAt(proposal.cursor))]);
     instance.pushUndoStop();
     // Курсор после «Псевдоним.» — сразу список реквизитов.
     setTimeout(() => instance.trigger("new-query", "editor.action.triggerSuggest", {}));
   };
 
-  const show = () => {
-    const model = instance.getModel();
-    const position = instance.getPosition();
-    const index = completionMetadata();
-    if (!model || !position || !index || !instance.getSelection()?.isEmpty()) return;
-    const eol = model.getEOL();
-    const proposal = newQueryProposal(model.getValue(), model.getOffsetAt(position), index, eol);
-    if (!proposal) return;
-
-    pending = { proposal, versionId: model.getVersionId() };
-    shown.set(true);
-    // Путь набран полностью — список объектов больше не нужен, Tab достаётся заготовке.
-    instance.trigger("new-query", "hideSuggestWidget", {});
-    // Весь будущий запрос — от строки, где он начинается.
-    const startLine = model.getPositionAt(proposal.from).lineNumber;
-    const before = model.getValueInRange(new monaco.Range(startLine, 1, startLine, model.getPositionAt(proposal.from).column));
-    const lines = (before + proposal.text).split(eol);
+  const zone = (afterLineNumber: number, lines: string[], hint?: string) => {
+    const model = instance.getModel()!;
     const font = instance.getOption(monaco.editor.EditorOption.fontInfo);
-
     const node = document.createElement("div");
     node.className = "group-by-preview";
     node.style.fontFamily = font.fontFamily;
@@ -77,17 +58,41 @@ export function createNewQueryPreview(instance: editor.IStandaloneCodeEditor, mo
     lines.forEach((text, i) => {
       const row = document.createElement("div");
       row.textContent = text;
-      if (i === 0) {
-        const hint = document.createElement("span");
-        hint.className = "group-by-preview-hint";
-        hint.textContent = "Tab — оформить запрос, Esc — нет";
-        row.append(hint);
+      if (i === 0 && hint) {
+        const label = document.createElement("span");
+        label.className = "group-by-preview-hint";
+        label.textContent = hint;
+        row.append(label);
       }
       node.append(row);
     });
     instance.changeViewZones((accessor) => {
-      zoneId = accessor.addZone({ afterLineNumber: position.lineNumber, heightInLines: lines.length, domNode: node });
+      zoneIds.push(accessor.addZone({ afterLineNumber, heightInLines: lines.length, domNode: node }));
     });
+  };
+
+  const show = () => {
+    const model = instance.getModel();
+    const position = instance.getPosition();
+    const index = completionMetadata();
+    if (!model || !position || !index || !instance.getSelection()?.isEmpty()) return;
+    const offset = model.getOffsetAt(position);
+    const proposal = newQueryProposal(model.getValue(), offset, index, model.getEOL());
+    if (!proposal) return;
+
+    pending = { proposal, offset, versionId: model.getVersionId() };
+    shown.set(true);
+    // Путь набран полностью — список объектов больше не нужен, Tab достаётся заготовке.
+    instance.trigger("new-query", "hideSuggestWidget", {});
+    // Заготовка на своём месте; подсказка про Tab — у курсора.
+    let hintShown = false;
+    for (const block of proposal.preview) {
+      const line = model.getPositionAt(block.offset).lineNumber;
+      const atCursor = line === position.lineNumber;
+      zone(line, block.lines, atCursor && !hintShown ? proposal.hint : undefined);
+      hintShown ||= atCursor;
+    }
+    if (!hintShown) zone(position.lineNumber, [""], proposal.hint);
   };
 
   /** Проверить после паузы в наборе: не мигать на каждой букве. */
@@ -103,7 +108,7 @@ export function createNewQueryPreview(instance: editor.IStandaloneCodeEditor, mo
   // Курсор ушёл с конца пути — заготовка больше не к месту.
   instance.onDidChangeCursorPosition((event) => {
     const model = instance.getModel();
-    if (pending && model && model.getOffsetAt(event.position) !== pending.proposal.to) dismiss();
+    if (pending && model && model.getOffsetAt(event.position) !== pending.offset) dismiss();
   });
   instance.onDidDispose(dismiss);
 

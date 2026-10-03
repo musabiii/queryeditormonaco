@@ -102,6 +102,33 @@ export function tableAlias(text: string, offset: number, table: string[], index:
   return parseQuery(scope, index, resolve)?.sources.find((source) => source.key === key)?.alias;
 }
 
+/**
+ * Как подключить таблицу к запросу под курсором (у которого уже есть ИЗ): её псевдоним
+ * и правка — левое соединение с подобранным условием (или ИСТИНА); если таблица уже
+ * есть в запросе — её псевдоним без правок. null — запроса с ИЗ под курсором нет.
+ */
+export function tableJoin(
+  text: string,
+  offset: number,
+  table: string[],
+  index: MetadataIndex,
+): { alias: string; edits: TextEdit[] } | null {
+  const located = locate(text, offset);
+  if (!located.statement?.tokens.some((token) => is(token, "ВЫБРАТЬ", "SELECT"))) return null;
+  const scope = unionPart(innermostScope(located.statement.tokens, located.offset), located.offset);
+  const resolve = resolverAt(text, located.offset, index);
+  const query = parseQuery(scope, index, resolve);
+  if (!query?.from) return null;
+  const resolved = resolve(table);
+  const key = tableKey(table, resolved, index);
+  const existing = query.sources.find((source) => source.key === key);
+  if (existing) return { alias: existing.alias, edits: [] };
+  const alias = uniqueAlias(defaultAlias(table), query.sources);
+  const join = joinEdit(text, query, table.join("."), alias, joinCondition(resolved, alias, query.sources, index));
+  const clean = join.text.replaceAll(SEL_START, "").replaceAll(SEL_END, "");
+  return { alias, edits: [{ ...join, text: clean }] };
+}
+
 export function smartInsert(text: string, offset: number, target: SmartTarget, index: MetadataIndex): SmartInsertResult {
   const located = locate(text, offset);
   const statement = located.statement;
