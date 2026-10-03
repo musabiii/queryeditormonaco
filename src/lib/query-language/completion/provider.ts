@@ -136,6 +136,11 @@ export function isAliasListPosition(text: string, offset: number): boolean {
 
 /** Курсор в условии ПО соединения (не СГРУППИРОВАТЬ ПО и т.п.). */
 function inJoinCondition(text: string, offset: number): boolean {
+  return conditionClause(text, offset) === "join";
+}
+
+/** В каком условии курсор: ГДЕ, ПО соединения или ни в каком. */
+function conditionClause(text: string, offset: number): "where" | "join" | null {
   const tokens = tokenize(text).filter((token) => token.kind !== "comment" && token.end <= offset);
   let depth = 0;
   for (let i = tokens.length - 1; i >= 0; i--) {
@@ -143,14 +148,22 @@ function inJoinCondition(text: string, offset: number): boolean {
     if (token.text === ")") depth++;
     else if (token.text === "(") {
       if (depth > 0) depth--;
-    } else if (token.text === ";") return false;
+    } else if (token.text === ";") return null;
     if (depth > 0 || token.kind !== "word") continue;
     const upper = token.text.toUpperCase();
-    if (upper === "ПО" || upper === "ON") return !NOT_JOIN_BY.has(upperText(tokens[i - 1]));
-    if (CLAUSES.has(upper)) return false;
+    if (upper === "ПО" || upper === "ON") return NOT_JOIN_BY.has(upperText(tokens[i - 1])) ? null : "join";
+    if (upper === "ГДЕ" || upper === "WHERE") return "where";
+    if (CLAUSES.has(upper)) return null;
   }
-  return false;
+  return null;
 }
+
+/** Перед путём — начало условия: ГДЕ, И, ИЛИ, НЕ (не скобка функции). */
+const CONDITION_START = /(?:^|[^\p{L}\p{N}_])(?:ГДЕ|WHERE|И|AND|ИЛИ|OR|НЕ|NOT)\s+$/iu;
+/** Команда: после «Поле = » сразу открыть список значений (параметр, предопределённые…). */
+const VALUES_COMMAND = "queryeditor.comparisonValues";
+/** Следующий запрос подсказок — от этой команды: показать только значения. */
+let valuesOnly = false;
 
 /** Есть ли что предложить: позиция подходит и в запросе есть таблицы с псевдонимами. */
 export function shouldListAliases(text: string, offset: number): boolean {
@@ -197,6 +210,10 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
       // В условии соединения справа обычно поле другой таблицы: псевдонимы вместо параметра.
       const joinComparison = Boolean(comparison) && inJoinCondition(text, offset);
       const valueItems = comparison ? comparisonValues(comparison[1], context, index, !joinComparison) : [];
+      // Поле выбрано из списка в ГДЕ, вставлено «Поле = » — только значения.
+      const forceValues = valuesOnly;
+      valuesOnly = false;
+      if (forceValues && comparison && !comparison[2] && valueItems.length) return { suggestions: valueItems.map((entry) => ({ ...entry, range })) };
       // После «ВЫБРАТЬ », запятой в ВЫБРАТЬ, «ГДЕ », «ПО », «И »… — псевдонимы таблиц запроса;
       // выбранный дополняется точкой и списком полей.
       // incomplete: начатое слово запрашивает полный список заново.
@@ -229,6 +246,21 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
           !restOfLine.trim() &&
           SELECT_ITEM_START.test(text.slice(Math.max(0, chainStart - 100), chainStart)) &&
           isAliasListPosition(text, chainStart);
+        // Новое условие в ГДЕ: выбранный реквизит вставляется с « = », и сразу список значений.
+        const newCondition =
+          !newSelectItem &&
+          !restOfLine.trim() &&
+          CONDITION_START.test(text.slice(Math.max(0, chainStart - 100), chainStart)) &&
+          conditionClause(text, chainStart) === "where";
+        if (newCondition) {
+          return {
+            suggestions: items.map((entry) =>
+              entry.kind !== Kind.Field && entry.kind !== Kind.Property
+                ? item(entry)
+                : item({ ...entry, insertText: `${String(entry.insertText)} = `, command: { id: VALUES_COMMAND, title: "Значения" } }),
+            ),
+          };
+        }
         if (!newSelectItem) return { suggestions: items.map(item) };
         const taken = namesInStatement(text, offset);
         return {
@@ -397,7 +429,13 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
     },
   });
 
-  return [completion, hover];
+  const values = monaco.editor.registerCommand(VALUES_COMMAND, () => {
+    valuesOnly = true;
+    const editor = monaco.editor.getEditors().find((candidate) => candidate.hasTextFocus());
+    editor?.trigger("values", "editor.action.triggerSuggest", {});
+  });
+
+  return [completion, hover, values];
 }
 
 function describeChain(chain: string[], context: QueryContext, index: MetadataIndex | null): string[] | null {
