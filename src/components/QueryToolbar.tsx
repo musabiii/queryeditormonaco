@@ -14,6 +14,8 @@ type Props = {
   onShowBslCode: () => void;
   getText: () => string;
   onShare: () => void;
+  /** Очистить текст запроса (отменяется Ctrl+Z). */
+  onClear: () => void;
   showWhitespace: boolean;
   onToggleWhitespace: () => void;
   aiOpen: boolean;
@@ -71,6 +73,9 @@ export function QueryToolbar(props: Props) {
           <circle cx="4" cy="8" r="1.75" />
           <circle cx="12" cy="12.5" r="1.75" />
           <path d="m5.6 7.1 4.8-2.7M5.6 8.9l4.8 2.7" />
+        </ToolButton>
+        <ToolButton label="Очистить текст запроса (Ctrl+Z — вернуть)" tone="red" onClick={props.onClear}>
+          <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M7 7v3.5M9 7v3.5" />
         </ToolButton>
       </div>
 

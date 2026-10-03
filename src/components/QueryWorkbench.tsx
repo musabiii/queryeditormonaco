@@ -91,6 +91,7 @@ export function QueryWorkbench({ initialQuery, sharedUntil }: Props) {
         onFormat={() => editorRef.current?.format()}
         onUnwrap={() => editorRef.current?.unwrapCodeString() ?? false}
         onShare={() => setShareText(editorRef.current?.getText() ?? "")}
+        onClear={() => editorRef.current?.replaceAll("")}
         onShowBslCode={() => {
           const editor = editorRef.current;
           if (editor) setBslCode(bslQueryCode(editor.getSelectedText() || editor.getText()));

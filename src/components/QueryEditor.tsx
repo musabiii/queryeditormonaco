@@ -372,6 +372,7 @@ export function QueryEditor({
         instance.executeEdits("ai", [{ range: model.getFullModelRange(), text: normalizeLineBreaks(text) }]);
         instance.pushUndoStop();
         instance.setPosition({ lineNumber: 1, column: 1 });
+        instance.focus();
       });
     },
   }));
