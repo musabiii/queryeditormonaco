@@ -13,7 +13,12 @@ self.onmessage = async (event: MessageEvent<ImportRequest>) => {
   try {
     const result = await buildModel(
       { folder: "", name: configuration.name, read: () => configuration.text() },
-      files.map(({ folder, file }) => ({ folder, name: file.name, read: () => file.text() })),
+      files.map(({ folder, file, predefined }) => ({
+        folder,
+        name: file.name,
+        read: () => file.text(),
+        ...(predefined ? { readPredefined: () => predefined.text() } : {}),
+      })),
       (done, total) => post({ type: "progress", done, total }),
     );
     post({ type: "done", ...result });

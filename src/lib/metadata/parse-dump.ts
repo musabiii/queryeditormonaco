@@ -3,7 +3,7 @@
  * Не зависит от браузера: работает и в Web Worker, и в Node.
  */
 
-import { MD_KINDS, type MdField, type MdKind, type MdObject, type MdTable } from "./model";
+import { MD_KINDS, type MdField, type MdKind, type MdObject, type MdPredefined, type MdTable } from "./model";
 import { parseXml } from "./xml";
 
 type XmlNode = Record<string, unknown>;
@@ -302,4 +302,24 @@ export function parseMetadataObject(
   if (values.length) object.values = values;
   if (props) object.props = props;
   return object;
+}
+
+/**
+ * Ext/Predefined.xml объекта — предопределённые элементы. Вложенные в группы
+ * тоже: в запросе к ним обращаются без групп, ЗНАЧЕНИЕ(Справочник.Вид.Имя).
+ */
+export function parsePredefined(xml: string): MdPredefined[] {
+  const result: MdPredefined[] = [];
+  const walk = (items: unknown) => {
+    for (const item of asArray(items as XmlNode | XmlNode[] | undefined)) {
+      const node = asNode(item);
+      if (!node) continue;
+      const name = textOf(node.Name);
+      const description = textOf(node.Description);
+      if (name) result.push({ name, ...(description && description !== name ? { description } : {}) });
+      walk(asNode(node.ChildItems)?.Item);
+    }
+  };
+  walk(asNode(parseXml(xml).PredefinedData)?.Item);
+  return result;
 }

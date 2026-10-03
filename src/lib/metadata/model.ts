@@ -6,7 +6,8 @@
  * не хранятся — они выводятся из вида объекта и его свойств.
  */
 
-export const MODEL_FORMAT_VERSION = 1;
+/** 2 — предопределённые элементы (predefined). */
+export const MODEL_FORMAT_VERSION = 2;
 
 export type MdKind =
   | "Catalog"
@@ -76,6 +77,13 @@ export type MdTable = {
   fields: MdField[];
 };
 
+/** Предопределённый элемент справочника, плана видов характеристик, счетов, видов расчёта. */
+export type MdPredefined = {
+  name: string;
+  /** Наименование, если отличается от имени. */
+  description?: string;
+};
+
 export type MdObject = {
   kind: MdKind;
   name: string;
@@ -90,6 +98,8 @@ export type MdObject = {
   tables?: MdTable[];
   /** Значения перечисления. */
   values?: string[];
+  /** Предопределённые элементы (из Ext/Predefined.xml), включая вложенные в группы. */
+  predefined?: MdPredefined[];
   /** Свойства, от которых зависят стандартные реквизиты и виртуальные таблицы. */
   props?: Record<string, string | string[] | boolean>;
 };

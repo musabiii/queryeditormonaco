@@ -3,7 +3,7 @@ import type { ConfigurationModel } from "./model";
 /** Сообщения между страницей и import.worker.ts. */
 export type ImportRequest = {
   configuration: File;
-  files: { folder: string; file: File }[];
+  files: { folder: string; file: File; predefined?: File }[];
 };
 
 export type ImportResponse =

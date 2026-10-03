@@ -371,6 +371,22 @@ function objectChildren(index: MetadataIndex, object: MdObject, id: string, full
         object.values!.map((value) => ({ id: `${id}/values/${value}`, label: value, icon: "value" as const, insert: `ЗНАЧЕНИЕ(${full}.${value})` })),
     });
   }
+  if (object.predefined?.length) {
+    groups.push({
+      id: `${id}/predefined`,
+      label: "Предопределенные",
+      detail: String(object.predefined.length),
+      icon: "group",
+      children: () =>
+        object.predefined!.map((item) => ({
+          id: `${id}/predefined/${item.name}`,
+          label: item.name,
+          title: item.description,
+          icon: "value" as const,
+          insert: `ЗНАЧЕНИЕ(${full}.${item.name})`,
+        })),
+    });
+  }
   addGroup("standard", "Стандартные реквизиты", standard);
   return groups;
 }

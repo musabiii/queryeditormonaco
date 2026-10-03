@@ -1,7 +1,7 @@
 /**
  * Встроенные типовые конфигурации: готовые модели в public/configurations,
  * собранные скриптом scripts/build-configuration.ts. Модель скачивается при
- * первом выборе и дальше берётся из IndexedDB.
+ * первом выборе и дальше берётся из IndexedDB, пока её не пересоберут.
  */
 
 import type { ConfigurationModel, ConfigurationSummary } from "./model";
@@ -19,7 +19,9 @@ export async function fetchBuiltinConfigurations(): Promise<ConfigurationSummary
 /** Модель конфигурации: встроенная — из кэша или с сервера, загруженная пользователем — из IndexedDB. */
 export async function loadModel(summary: ConfigurationSummary): Promise<ConfigurationModel | undefined> {
   const cached = await loadConfiguration(summary.id);
-  if (cached || !summary.builtinFile) return cached;
+  if (!summary.builtinFile) return cached;
+  // Типовую пересобрали (например, с предопределёнными элементами) — версия та же, модель новая.
+  if (cached && cached.loadedAt === summary.loadedAt) return cached;
 
   const response = await fetch(`${BASE}/${summary.builtinFile}`);
   if (!response.ok) throw new Error(`Не удалось скачать ${summary.builtinFile}: ${response.status}`);

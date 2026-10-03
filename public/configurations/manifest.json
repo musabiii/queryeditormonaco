@@ -5,7 +5,7 @@
     "synonym": "Зарплата и управление персоналом, редакция 3.1",
     "version": "3.1.20.97",
     "vendor": "Фирма \"1С\"",
-    "loadedAt": "2026-09-30T20:03:13.171Z",
+    "loadedAt": "2026-10-03T14:53:07.020Z",
     "counts": {
       "Catalog": 430,
       "Document": 203,
@@ -23,10 +23,10 @@
       "FilterCriterion": 2
     },
     "stats": {
-      "modelBytes": 5407485,
-      "sourceBytes": 68296809,
-      "sourceFiles": 2275,
-      "parseSeconds": 4.4952392
+      "modelBytes": 5817288,
+      "sourceBytes": 69104988,
+      "sourceFiles": 2335,
+      "parseSeconds": 4.161627500000001
     },
     "builtinFile": "zup-3.1.20.97.json.gz"
   },
@@ -36,7 +36,7 @@
     "synonym": "Медицина. Больница, редакция 2.0",
     "version": "2.0.16.1",
     "vendor": "ООО «Информатика медицины»",
-    "loadedAt": "2026-09-30T22:50:19.480Z",
+    "loadedAt": "2026-10-03T14:53:13.048Z",
     "counts": {
       "Catalog": 530,
       "Document": 167,
@@ -52,10 +52,10 @@
       "FilterCriterion": 2
     },
     "stats": {
-      "modelBytes": 2858163,
-      "sourceBytes": 44920077,
-      "sourceFiles": 2499,
-      "parseSeconds": 3.3644279999999998
+      "modelBytes": 2946990,
+      "sourceBytes": 45149435,
+      "sourceFiles": 2556,
+      "parseSeconds": 4.056051999999999
     },
     "builtinFile": "medicine-2.0.16.1.json.gz"
   },
@@ -65,7 +65,7 @@
     "synonym": "1С:Университет ПРОФ, редакция 2.2",
     "version": "2.2.15.20",
     "vendor": "ООО \"СГУ-Инфоком\"",
-    "loadedAt": "2026-10-01T17:56:12.095Z",
+    "loadedAt": "2026-10-03T14:53:17.872Z",
     "counts": {
       "Catalog": 322,
       "Document": 113,
@@ -81,10 +81,10 @@
       "FilterCriterion": 3
     },
     "stats": {
-      "modelBytes": 2011101,
-      "sourceBytes": 30551706,
-      "sourceFiles": 1730,
-      "parseSeconds": 1.9730147999999998
+      "modelBytes": 2332668,
+      "sourceBytes": 31464389,
+      "sourceFiles": 1894,
+      "parseSeconds": 2.8803118000000003
     },
     "builtinFile": "univer-2.2.15.20.json.gz"
   }

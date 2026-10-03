@@ -120,7 +120,7 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
           sortText: object.name,
         }));
       }
-      // Справочник.Сотрудники. → виртуальные таблицы, табличные части, значения перечисления
+      // Справочник.Сотрудники. → виртуальные таблицы, табличные части, значения перечисления и предопределённые
       const object = chain.length === 2 ? index.object(rootKind, chain[1]) : undefined;
       if (!object) return [];
       const kindName = queryNameOf(object.kind);
@@ -138,6 +138,13 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
           insertText: value,
           detail: `${kindName}.${object.name}`,
           sortText: `1${value}`,
+        })),
+        ...(object.predefined ?? []).map((item) => ({
+          label: item.name,
+          kind: Kind.EnumMember,
+          insertText: item.name,
+          detail: item.description ? `Предопределенный — ${item.description}` : "Предопределенный",
+          sortText: `1${item.name}`,
         })),
         ...(object.kind !== "InformationRegister" && object.kind !== "AccumulationRegister"
           ? [{ label: "ПустаяСсылка", kind: Kind.Constant, insertText: "ПустаяСсылка", sortText: "2" }]

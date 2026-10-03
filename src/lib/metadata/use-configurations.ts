@@ -122,8 +122,11 @@ export function useConfigurations() {
         setImportState({ status: "saving" });
         const summary = await saveConfiguration(model, {
           modelBytes: new Blob([JSON.stringify(model)]).size,
-          sourceBytes: selection.files.reduce((sum, { file }) => sum + file.size, selection.configuration.size),
-          sourceFiles: selection.files.length + 1,
+          sourceBytes: selection.files.reduce(
+            (sum, { file, predefined }) => sum + file.size + (predefined?.size ?? 0),
+            selection.configuration.size,
+          ),
+          sourceFiles: selection.files.reduce((sum, { predefined }) => sum + (predefined ? 2 : 1), 1),
           parseSeconds: (performance.now() - started) / 1000,
         });
         writeActive(summary.id);

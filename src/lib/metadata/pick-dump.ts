@@ -1,19 +1,21 @@
 /**
  * Выбор папки с выгрузкой конфигурации в браузере и отбор нужных файлов.
- * Читаются только Configuration.xml и описания объектов верхнего уровня
- * (Catalogs/Имя.xml и т.п.) — формы, модули и макеты не трогаются.
+ * Читаются только Configuration.xml, описания объектов верхнего уровня
+ * (Catalogs/Имя.xml и т.п.) и предопределённые элементы (Catalogs/Имя/Ext/Predefined.xml) —
+ * формы, модули и макеты не трогаются.
  */
 
-import { DUMP_FOLDERS } from "./build-model";
+import { DUMP_FOLDERS, PREDEFINED_FOLDERS, PREDEFINED_PATH } from "./build-model";
 
 export type DumpSelection = {
   /** Имя выбранной папки — для сообщений. */
   folderName: string;
   configuration: File;
-  files: { folder: string; file: File }[];
+  files: { folder: string; file: File; predefined?: File }[];
 };
 
 const WANTED_FOLDERS = new Set(DUMP_FOLDERS);
+const WITH_PREDEFINED = new Set(PREDEFINED_FOLDERS);
 
 export class DumpFormatError extends Error {}
 
@@ -50,10 +52,16 @@ export async function pickDumpDirectory(): Promise<DumpSelection | null> {
   const files: DumpSelection["files"] = [];
   for await (const entry of root.values()) {
     if (entry.kind !== "directory" || !WANTED_FOLDERS.has(entry.name)) continue;
+    const objectDirs = new Map<string, DirectoryHandle>();
+    const objectFiles: File[] = [];
     for await (const child of entry.values()) {
-      if (child.kind === "file" && child.name.endsWith(".xml")) {
-        files.push({ folder: entry.name, file: await child.getFile() });
-      }
+      if (child.kind === "file" && child.name.endsWith(".xml")) objectFiles.push(await child.getFile());
+      else if (child.kind === "directory") objectDirs.set(child.name, child);
+    }
+    for (const file of objectFiles) {
+      const dir = WITH_PREDEFINED.has(entry.name) ? objectDirs.get(file.name.slice(0, -".xml".length)) : undefined;
+      const predefined = dir && (await predefinedFile(dir));
+      files.push({ folder: entry.name, file, ...(predefined ? { predefined } : {}) });
     }
   }
   return { folderName: root.name, configuration, files };
@@ -73,6 +81,16 @@ async function findDumpRoot(directory: DirectoryHandle): Promise<DirectoryHandle
   throw new DumpFormatError(
     "В папке нет Configuration.xml. Выберите корневую папку выгрузки конфигурации в файлы.",
   );
+}
+
+/** Имя/Ext/Predefined.xml — есть не у всех объектов. */
+async function predefinedFile(objectDir: DirectoryHandle): Promise<File | undefined> {
+  try {
+    const ext = await objectDir.getDirectoryHandle(PREDEFINED_PATH[0]);
+    return await (await ext.getFileHandle(PREDEFINED_PATH[1])).getFile();
+  } catch {
+    return undefined;
+  }
 }
 
 async function hasFile(directory: DirectoryHandle, name: string) {
@@ -115,11 +133,19 @@ export function selectionFromFileList(list: FileList): DumpSelection {
 
   const rootPath = configuration.webkitRelativePath.slice(0, -"Configuration.xml".length);
   const files: DumpSelection["files"] = [];
+  const predefined = new Map<string, File>();
   for (const file of all) {
     const path = file.webkitRelativePath;
     if (!path.startsWith(rootPath) || !file.name.endsWith(".xml")) continue;
     const parts = path.slice(rootPath.length).split("/");
     if (parts.length === 2 && WANTED_FOLDERS.has(parts[0])) files.push({ folder: parts[0], file });
+    else if (parts.length === 4 && WITH_PREDEFINED.has(parts[0]) && parts.slice(2).join("/") === PREDEFINED_PATH.join("/")) {
+      predefined.set(`${parts[0]}/${parts[1]}`, file);
+    }
+  }
+  for (const item of files) {
+    const file = predefined.get(`${item.folder}/${item.file.name.slice(0, -".xml".length)}`);
+    if (file) item.predefined = file;
   }
   const folderName = rootPath.split("/").filter(Boolean).pop() ?? "выгрузка";
   return { folderName, configuration, files };

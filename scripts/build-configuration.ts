@@ -11,7 +11,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
-import { buildModel, DUMP_FOLDERS, type DumpFile } from "../src/lib/metadata/build-model";
+import { buildModel, DUMP_FOLDERS, PREDEFINED_FOLDERS, PREDEFINED_PATH, type DumpFile } from "../src/lib/metadata/build-model";
 import { summarize, type ConfigurationSummary } from "../src/lib/metadata/model";
 
 const OUT_DIR = resolve(import.meta.dirname, "..", "public", "configurations");
@@ -38,6 +38,7 @@ async function main() {
   }
 
   let sourceBytes = statSync(configurationPath).size;
+  let sourceFiles = 1;
   const files: DumpFile[] = [];
   for (const folder of DUMP_FOLDERS) {
     const dir = join(dump, folder);
@@ -46,7 +47,15 @@ async function main() {
       const path = join(dir, name);
       if (!name.endsWith(".xml") || !statSync(path).isFile()) continue;
       sourceBytes += statSync(path).size;
-      files.push({ folder, name, read: async () => readFileSync(path, "utf8") });
+      sourceFiles++;
+      const file: DumpFile = { folder, name, read: async () => readFileSync(path, "utf8") };
+      const predefinedPath = join(dir, name.slice(0, -".xml".length), ...PREDEFINED_PATH);
+      if (PREDEFINED_FOLDERS.includes(folder) && existsSync(predefinedPath)) {
+        sourceBytes += statSync(predefinedPath).size;
+        sourceFiles++;
+        file.readPredefined = async () => readFileSync(predefinedPath, "utf8");
+      }
+      files.push(file);
     }
   }
 
@@ -70,7 +79,7 @@ async function main() {
     ...summarize(model, {
       modelBytes: Buffer.byteLength(json),
       sourceBytes,
-      sourceFiles: files.length + 1,
+      sourceFiles,
       parseSeconds,
     }),
     builtinFile: file,

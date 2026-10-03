@@ -10,6 +10,7 @@ import {
   parseConfigurationInfo,
   parseDefinedType,
   parseMetadataObject,
+  parsePredefined,
 } from "./parse-dump";
 
 /** Файл выгрузки: папка вида объектов (Catalogs…) и способ прочитать текст. */
@@ -17,6 +18,8 @@ export type DumpFile = {
   folder: string;
   name: string;
   read: () => Promise<string>;
+  /** Ext/Predefined.xml рядом с описанием объекта — у видов из PREDEFINED_FOLDERS, если есть. */
+  readPredefined?: () => Promise<string>;
 };
 
 export type BuildResult = {
@@ -27,6 +30,10 @@ export type BuildResult = {
 
 /** Папки выгрузки, из которых читаются описания объектов (только файлы верхнего уровня). */
 export const DUMP_FOLDERS = [DEFINED_TYPES_FOLDER, ...MD_KINDS.map((k) => k.folder)];
+
+/** Виды с предопределёнными элементами: их файлы — Папка/Имя/Ext/Predefined.xml. */
+export const PREDEFINED_FOLDERS = ["Catalogs", "ChartsOfCharacteristicTypes", "ChartsOfAccounts", "ChartsOfCalculationTypes"];
+export const PREDEFINED_PATH = ["Ext", "Predefined.xml"];
 
 const KIND_BY_FOLDER = new Map(MD_KINDS.map((k) => [k.folder, k.kind]));
 const KIND_ORDER = new Map(MD_KINDS.map((k, i) => [k.kind, i]));
@@ -66,6 +73,15 @@ export async function buildModel(
     if (!kind) continue;
     try {
       const object = parseMetadataObject(await file.read(), kind, resolveDefined);
+      if (object && file.readPredefined) {
+        // Испорченный Predefined.xml не должен лишать объекта.
+        try {
+          const predefined = parsePredefined(await file.readPredefined());
+          if (predefined.length) object.predefined = predefined;
+        } catch (error) {
+          skipped.push(`${file.folder}/${object.name}/Ext/Predefined.xml: ${String(error)}`);
+        }
+      }
       if (object) objects.push(object);
       else skipped.push(`${file.folder}/${file.name}: не описание объекта`);
     } catch (error) {
