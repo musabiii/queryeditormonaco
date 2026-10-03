@@ -3,6 +3,9 @@
  * меняет псевдоним во всём запросе сразу — во всех путях «ФЛ.…». Границы — запрос пакета, часть
  * ОБЪЕДИНИТЬ и подзапрос, в котором объявлен псевдоним; вложенные подзапросы
  * со своими таблицами не затрагиваются.
+ *
+ * Так же — имя временной таблицы после ПОМЕСТИТЬ: меняется во всех запросах пакета,
+ * которые её используют.
  */
 
 import { tokenize, type Token } from "./lexer";
@@ -19,8 +22,11 @@ export function linkedAliasRanges(text: string, offset: number): TextRange[] | n
   // Курсор внутри слова или сразу за ним (так бывает во время набора).
   const word = tokens.find((token) => token.kind === "word" && token.start <= offset && offset <= token.end);
   if (!word) return null;
-  const statement = splitStatements(tokens).find((s) => s.start <= word.start && word.end <= s.end);
+  const statements = splitStatements(tokens);
+  const statement = statements.find((s) => s.start <= word.start && word.end <= s.end);
   if (!statement) return null;
+  const before = statement.tokens[statement.tokens.indexOf(word) - 1];
+  if (is(before, "ПОМЕСТИТЬ", "INTO")) return tempTableRanges(statements.slice(statements.indexOf(statement) + 1), word);
 
   const scope = ownTokens(unionPart(innermostScope(statement.tokens, word.start), word.start));
   const name = word.text.toLowerCase();
@@ -37,6 +43,27 @@ export function linkedAliasRanges(text: string, offset: number): TextRange[] | n
     )
     .map((token) => ({ start: token.start, end: token.end }));
   return ranges.some((range) => range.start === word.start) ? ranges : null;
+}
+
+/**
+ * Имя временной таблицы после ПОМЕСТИТЬ — и его упоминания в следующих запросах
+ * пакета: источники, УНИЧТОЖИТЬ, пути «ВТ.Поле» без псевдонима. До запроса,
+ * который создаёт таблицу с тем же именем заново, или до УНИЧТОЖИТЬ включительно.
+ */
+function tempTableRanges(following: { tokens: Token[] }[], definition: Token): TextRange[] {
+  const name = definition.text.toLowerCase();
+  const same = (token: Token | undefined) => token?.kind === "word" && token.text.toLowerCase() === name;
+  const ranges: TextRange[] = [{ start: definition.start, end: definition.end }];
+  for (const statement of following) {
+    const list = statement.tokens;
+    // Пересоздана — дальше это уже другая таблица.
+    if (list.some((token, i) => same(token) && is(list[i - 1], "ПОМЕСТИТЬ", "INTO"))) break;
+    list.forEach((token, i) => {
+      if (same(token) && list[i - 1]?.text !== ".") ranges.push({ start: token.start, end: token.end });
+    });
+    if (is(list[0], "УНИЧТОЖИТЬ", "DROP") && same(list[1])) break;
+  }
+  return ranges;
 }
 
 /** Лексемы области без вложенных подзапросов «(ВЫБРАТЬ …)»: у них свои псевдонимы. */
