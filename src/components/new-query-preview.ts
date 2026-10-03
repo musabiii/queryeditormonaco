@@ -1,6 +1,7 @@
 /**
  * Заготовка по набранному пути к таблице (new-query.ts): в пустом блоке — весь
- * запрос, в запросе с ИЗ — соединение с этой таблицей. Серым показывается на своём
+ * запрос, в запросе с ИЗ — соединение с этой таблицей. Выбранная из списка таблица
+ * подставляется сразу, набранная руками — серой заготовкой по Tab. Серым показывается на своём
  * месте; Tab — вставить, курсор встаёт после «Псевдоним.» и сразу открывается
  * список реквизитов; Esc, набор текста или перемещение курсора — убрать.
  */
@@ -81,6 +82,11 @@ export function createNewQueryPreview(instance: editor.IStandaloneCodeEditor, mo
     if (!proposal) return;
 
     pending = { proposal, offset, versionId: model.getVersionId() };
+    // Таблицу выбрали из списка — дальше только выбирать поля: подставляем сразу, без Tab.
+    if (proposal.auto && picked) {
+      accept();
+      return;
+    }
     shown.set(true);
     // Путь набран полностью — список объектов больше не нужен, Tab достаётся заготовке.
     instance.trigger("new-query", "hideSuggestWidget", {});
@@ -96,8 +102,13 @@ export function createNewQueryPreview(instance: editor.IStandaloneCodeEditor, mo
   };
 
   /** Проверить после паузы в наборе: не мигать на каждой букве. */
-  const schedule = () => {
+  /** Последняя правка вставила имя целиком — выбор из списка подсказок или вставка. */
+  let picked = false;
+  const schedule = (event: editor.IModelContentChangedEvent) => {
     dismiss();
+    picked = event.changes.some((change) => change.text.trim().length > 1);
+    // Отмена (Ctrl+Z) не должна снова подставлять только что отменённое.
+    if (event.isUndoing || event.isRedoing) return;
     timer = setTimeout(show, 200);
   };
 

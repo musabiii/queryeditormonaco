@@ -31,6 +31,8 @@ export type NewQueryProposal = {
   /** Что показать серым: строки и смещение, после строки которого их показать. */
   preview: { offset: number; lines: string[] }[];
   hint: string;
+  /** Таблица: если её имя выбрано из списка подсказок — подставлять сразу, без Tab. */
+  auto?: boolean;
 };
 
 const SELECT = ["ВЫБРАТЬ", "SELECT"];
@@ -59,23 +61,22 @@ export function newQueryProposal(text: string, offset: number, index: MetadataIn
   if (own[end].kind !== "word" || own[start - 1]?.text === ".") return null;
   const path = pathTokens.filter((_, i) => i % 2 === 0).map((token) => token.text);
   // Таблица конфигурации или временная таблица, созданная раньше в пакете.
-  const isTable =
-    path.length > 1
-      ? Boolean(index?.rootKind(path[0]) && index.resolveTable(path))
-      : analyzeQuery(text, offset, index).tempTables.has(path[0].toLowerCase());
-  if (!isTable) return null;
+  const temp = path.length === 1 ? analyzeQuery(text, offset, index).tempTables : null;
+  const table = path.length > 1 && index?.rootKind(path[0]) ? index.resolveTable(path) : undefined;
+  if (temp ? !temp.has(path[0].toLowerCase()) : !table) return null;
 
   const before = own.slice(0, start);
   const onlyPath = end === own.length - 1 && (!before.length || (before.length === 1 && SELECT.includes(upper(before[0]))));
   if (onlyPath) {
-    return wholeQuery(text, offset, path, pathTokens[0], before[0], eol);
+    return { ...wholeQuery(text, offset, path, pathTokens[0], before[0], eol), auto: true };
   }
   // Новый элемент списка ВЫБРАТЬ: после ВЫБРАТЬ (РАЗЛИЧНЫЕ…) или запятой.
   const previous = before[before.length - 1];
   if (previous.text !== "," && !SELECT_HEAD.includes(upper(previous))) return null;
   // Соединение подбирается по метаданным — без конфигурации только новый запрос.
   if (!index || !isAliasListPosition(text, pathTokens[0].start)) return null;
-  return joinedTable(text, offset, path, pathTokens[0].start, index, eol);
+  const joined = joinedTable(text, offset, path, pathTokens[0].start, index, eol);
+  return joined && { ...joined, auto: true };
 }
 
 /** Разделитель запросов пакета, как у конструктора запросов 1С. */
