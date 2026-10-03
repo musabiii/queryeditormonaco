@@ -9,7 +9,7 @@ import type { ConfigurationModel } from "@/lib/metadata/model";
 import { tokenize } from "../lexer";
 import { AS_KEYWORDS, CONSTANTS, FUNCTIONS, KEYWORDS, METADATA_ROOTS, WORD_OPERATORS, type WordPair } from "../vocabulary";
 import { MetadataIndex, queryNameOf, type TableField } from "./metadata-index";
-import { analyzeQuery, fieldAtPath, fieldsAfterPath, type QueryContext } from "./query-context";
+import { analyzeQuery, fieldAtPath, fieldsAfterPath, splitStatements, type QueryContext } from "./query-context";
 
 type Monaco = typeof MonacoApi;
 type CompletionItem = MonacoApi.languages.CompletionItem;
@@ -221,7 +221,24 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
 
       // После точки: объекты вида, таблицы объекта или поля.
       if (chain.length > 0) {
-        return { suggestions: afterDot(chain, context, index).map(item) };
+        const items = afterDot(chain, context, index);
+        // Новое поле списка ВЫБРАТЬ: выбранный реквизит вставляется сразу с «КАК Имя».
+        const chainStart = offset - prefix.length - (match?.[1].length ?? 0);
+        const restOfLine = model.getLineContent(position.lineNumber).slice(position.column - 1);
+        const newSelectItem =
+          !restOfLine.trim() &&
+          SELECT_ITEM_START.test(text.slice(Math.max(0, chainStart - 100), chainStart)) &&
+          isAliasListPosition(text, chainStart);
+        if (!newSelectItem) return { suggestions: items.map(item) };
+        const taken = namesInStatement(text, offset);
+        return {
+          suggestions: items.map((entry) => {
+            if (entry.kind !== Kind.Field && entry.kind !== Kind.Property) return item(entry);
+            const name = String(entry.insertText);
+            const alias = uniqueName([...chain.slice(1), name].join(""), taken);
+            return item({ ...entry, insertText: `${name} КАК ${alias}` });
+          }),
+        };
       }
 
       const suggestions: CompletionItem[] = [];
@@ -428,6 +445,27 @@ function insideStringOrComment(text: string, offset: number): boolean {
   return tokenize(text).some(
     (t) => (t.kind === "string" || t.kind === "comment") && t.start < offset && offset <= t.end && !(t.kind === "string" && offset === t.end && text[t.end - 1] === '"'),
   );
+}
+
+/** Перед путём — начало элемента списка ВЫБРАТЬ: запятая, ВЫБРАТЬ, РАЗЛИЧНЫЕ, ПЕРВЫЕ N. */
+const SELECT_ITEM_START = /(?:,|(?:^|[^\p{L}\p{N}_])(?:ВЫБРАТЬ|SELECT|РАЗЛИЧНЫЕ|DISTINCT|РАЗРЕШЕННЫЕ|ALLOWED|\d+))\s*$/iu;
+
+/** Имена после КАК в запросе под курсором — чтобы имя нового поля не повторялось. */
+function namesInStatement(text: string, offset: number): Set<string> {
+  const statement = splitStatements(tokenize(text).filter((token) => token.kind !== "comment")).find(
+    (s) => s.start <= offset && offset <= s.end,
+  );
+  const tokens = statement?.tokens ?? [];
+  return new Set(
+    tokens.filter((token, i) => token.kind === "word" && /^(КАК|AS)$/i.test(tokens[i - 1]?.text ?? "")).map((token) => token.text.toLowerCase()),
+  );
+}
+
+/** Наименование, Наименование1… — как у конструктора запросов. */
+function uniqueName(base: string, taken: Set<string>): string {
+  let name = base;
+  for (let n = 1; taken.has(name.toLowerCase()); n++) name = `${base}${n}`;
+  return name;
 }
 
 function dedupe(items: CompletionItem[]): CompletionItem[] {
