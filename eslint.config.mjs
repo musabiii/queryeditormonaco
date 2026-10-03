@@ -18,6 +18,8 @@ const eslintConfig = defineConfig([
     "zupfiles/**",
     "medicine/**",
     "univer/**",
+    // Разборщик языка запросов, сгенерированный ANTLR из grammar/sdbl (npm run grammar:build)
+    "src/lib/query-language/sdbl/generated/**",
   ]),
 ]);
 

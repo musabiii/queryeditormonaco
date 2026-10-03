@@ -4,6 +4,7 @@ import { formatQuery } from "./formatter";
 import { groupBySuggestion } from "./group-by";
 import { LANGUAGE_ID, languageConfiguration, monarchLanguage } from "./grammar";
 import { linkedAliasRanges } from "./linked-aliases";
+import { SYNTAX_MARKER_OWNER } from "./syntax-owner";
 import { themes } from "./themes";
 
 // Тип Monaco из @monaco-editor/react ссылается на путь, которого нет в monaco-editor 0.56+.
@@ -38,6 +39,20 @@ export function registerQueryLanguage(monaco: Monaco) {
     monaco.languages.setMonarchTokensProvider(LANGUAGE_ID, monarchLanguage),
     monaco.languages.registerDocumentFormattingEditProvider(LANGUAGE_ID, {
       provideDocumentFormattingEdits(model) {
+        // С синтаксической ошибкой форматирование может испортить текст — сначала исправить.
+        const [error] = monaco.editor
+          .getModelMarkers({ owner: SYNTAX_MARKER_OWNER, resource: model.uri })
+          .sort((a, b) => a.startLineNumber - b.startLineNumber);
+        if (error) {
+          const editor = monaco.editor.getEditors().find((candidate) => candidate.getModel() === model);
+          const position = editor?.getPosition();
+          const messages = editor?.getContribution<{ showMessage(message: MonacoApi.IMarkdownString, position: MonacoApi.IPosition): void } & MonacoApi.editor.IEditorContribution>("editor.contrib.messageController");
+          const text = `Не форматирую: сначала исправьте ошибку в строке ${error.startLineNumber} — ${error.message}`;
+          // Markdown: «*» или «_» в тексте ошибки не должны стать разметкой.
+          const value = text.replace(/[\\`*_{}[\]()#+\-.!|<>]/g, "\\$&");
+          if (position) messages?.showMessage({ value, isTrusted: false }, position);
+          return [];
+        }
         const text = model.getValue();
         const formatted = formatQuery(text);
         return formatted === text ? [] : [{ range: model.getFullModelRange(), text: formatted }];

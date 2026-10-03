@@ -18,6 +18,8 @@ type Props = {
   onClear: () => void;
   showWhitespace: boolean;
   onToggleWhitespace: () => void;
+  syntaxCheck: boolean;
+  onToggleSyntaxCheck: () => void;
   aiOpen: boolean;
   onToggleAi: () => void;
   onOpenConfigurations: () => void;
@@ -59,6 +61,14 @@ export function QueryToolbar(props: Props) {
           pressed={props.showWhitespace}
         >
           <path d="M8 14V2.5h5M11 2.5V14M8 2.5a3 3 0 0 0 0 6" />
+        </ToolButton>
+        <ToolButton
+          label={props.syntaxCheck ? "Проверка синтаксиса при вводе: включена" : "Проверка синтаксиса при вводе: выключена"}
+          tone={props.syntaxCheck ? "green" : undefined}
+          onClick={props.onToggleSyntaxCheck}
+          pressed={props.syntaxCheck}
+        >
+          <path d="M2.5 13.5h4M2.5 10.5h4M2.5 7.5h3M8.5 9.5l2 2 3.5-4.5M9 3.5H2.5" />
         </ToolButton>
         <UnwrapButton onUnwrap={props.onUnwrap} />
         <ToolButton label="Текст для кода 1С: запрос с параметрами и обходом выборки" tone="teal" onClick={props.onShowBslCode}>

@@ -10,12 +10,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "configuration:build": "tsx scripts/build-configuration.ts"
+    "configuration:build": "tsx scripts/build-configuration.ts",
+    "grammar:build": "antlr-ng -Dlanguage=TypeScript --generate-listener false -o src/lib/query-language/sdbl/generated --lib grammar/sdbl grammar/sdbl/SDBLLexer.g4 grammar/sdbl/SDBLParser.g4 && node -e \"for (const f of require('fs').readdirSync('src/lib/query-language/sdbl/generated')) if (!f.endsWith('.ts')) require('fs').rmSync('src/lib/query-language/sdbl/generated/' + f)\"",
+    "syntax:corpus": "tsx scripts/check-syntax-corpus.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
     "@monaco-editor/react": "^4.7.0",
     "@vercel/analytics": "^2.0.1",
+    "antlr4ng": "^3.0.16",
     "monaco-editor": "^0.57.0",
     "next": "16.3.7",
     "openai": "^7.25.0",
@@ -28,6 +31,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "antlr-ng": "^1.0.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.7",
     "tailwindcss": "^4",

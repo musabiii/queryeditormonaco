@@ -77,6 +77,15 @@ body {
   --vscode-widget-shadow: rgb(0 0 0 / 0.25);
 }
 
+/* Текст ошибки синтаксиса в конце строки (src/components/syntax-markers.ts). */
+.syntax-error-inline::after {
+  color: var(--danger);
+  font-style: italic;
+  opacity: 0.85;
+  white-space: pre;
+  pointer-events: none;
+}
+
 /* Заготовка «СГРУППИРОВАТЬ ПО» в редакторе (src/components/group-by-preview.ts). */
 .group-by-preview {
   color: var(--muted);

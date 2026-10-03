@@ -7,6 +7,7 @@ import { commentLines, uncommentLines } from "@/lib/comment-lines";
 import { loadMonaco } from "@/lib/monaco-loader";
 import { createGroupByPreview } from "./group-by-preview";
 import { createNewQueryPreview } from "./new-query-preview";
+import { createSyntaxChecker } from "./syntax-markers";
 import {
   LANGUAGE_ID,
   collectParameters,
@@ -63,6 +64,8 @@ export type QueryEditorHandle = {
   replaceAll(text: string): void;
   /** Добавляет в конец пакета новый запрос (с «;» и разделителем) и ставит курсор в него. */
   appendBatchQuery(): void;
+  /** Перейти к следующей ошибке синтаксиса и показать её текст. */
+  nextError(): void;
 };
 
 const OPTIONS: editor.IStandaloneEditorConstructionOptions = {
@@ -191,6 +194,10 @@ type Props = {
   onParametersChange?: (parameters: QueryParameter[]) => void;
   /** Текст после каждого изменения — например, для фильтра дерева конфигурации. */
   onTextChange?: (text: string) => void;
+  /** Проверять синтаксис во время ввода. */
+  syntaxCheck?: boolean;
+  /** Сколько ошибок синтаксиса сейчас подчёркнуто. */
+  onSyntaxErrors?: (count: number) => void;
   /** Показывать пробелы и табы во всём тексте, а не только в выделении. */
   showWhitespace?: boolean;
   ref?: Ref<QueryEditorHandle>;
@@ -203,11 +210,24 @@ export function QueryEditor({
   onBatchChange,
   onParametersChange,
   onTextChange,
+  syntaxCheck = true,
+  onSyntaxErrors,
   showWhitespace = false,
   ref,
 }: Props) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const groupByRef = useRef<ReturnType<typeof createGroupByPreview> | null>(null);
+  const syntaxRef = useRef<ReturnType<typeof createSyntaxChecker> | null>(null);
+  // Последние колбэк и настройка — для проверки, созданной один раз при монтировании.
+  const onSyntaxErrorsRef = useRef(onSyntaxErrors);
+  const syntaxCheckRef = useRef(syntaxCheck);
+  useEffect(() => {
+    onSyntaxErrorsRef.current = onSyntaxErrors;
+  }, [onSyntaxErrors]);
+  useEffect(() => {
+    syntaxCheckRef.current = syntaxCheck;
+    syntaxRef.current?.setEnabled(syntaxCheck);
+  }, [syntaxCheck]);
   const options = useMemo<editor.IStandaloneEditorConstructionOptions>(
     () => ({ ...OPTIONS, renderWhitespace: showWhitespace ? "all" : "selection" }),
     [showWhitespace],
@@ -333,6 +353,12 @@ export function QueryEditor({
         instance.revealRangeInCenterIfOutsideViewport(selection);
       });
     },
+    nextError() {
+      withEditor(editorRef.current, (instance) => {
+        instance.focus();
+        instance.trigger("status", "editor.action.marker.next", {});
+      });
+    },
     appendBatchQuery() {
       withEditor(editorRef.current, (instance) => {
         const model = instance.getModel();
@@ -382,6 +408,8 @@ export function QueryEditor({
     const stopDrop = handleTextDrop(instance, monaco);
     groupByRef.current = createGroupByPreview(instance, monaco);
     createNewQueryPreview(instance, monaco);
+    syntaxRef.current = createSyntaxChecker(instance, monaco, (count) => onSyntaxErrorsRef.current?.(count));
+    syntaxRef.current.setEnabled(syntaxCheckRef.current);
     instance.onDidDispose(() => {
       editorRef.current = null;
       stopDrop();

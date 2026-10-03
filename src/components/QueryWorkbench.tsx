@@ -14,6 +14,7 @@ import { SAMPLE_QUERY } from "@/lib/sample-query";
 import { useConfigurations } from "@/lib/metadata/use-configurations";
 import { useColorScheme } from "@/lib/use-theme";
 import { QueryEditor, type EditorStatus, type QueryEditorHandle } from "./QueryEditor";
+import { useSyntaxCheck } from "@/lib/use-syntax-check";
 import { QueryStructure } from "./QueryStructure";
 import { QueryToolbar } from "./QueryToolbar";
 import { AiPanel } from "./ai/AiPanel";
@@ -38,6 +39,9 @@ export function QueryWorkbench({ initialQuery, sharedUntil }: Props) {
   /** Текст редактора — для фильтра «только объекты запроса» в дереве конфигурации. */
   const [text, setText] = useState("");
   const [showWhitespace, setShowWhitespace] = useState(false);
+  /** Проверка синтаксиса при вводе; выбор запоминается в браузере. */
+  const [syntaxCheck, toggleSyntaxCheck] = useSyntaxCheck();
+  const [syntaxErrors, setSyntaxErrors] = useState(0);
   const [aiOpen, setAiOpen] = useState(false);
   const [configurationsOpen, setConfigurationsOpen] = useState(false);
   const [treeOpen, setTreeOpen] = useState(false);
@@ -99,6 +103,8 @@ export function QueryWorkbench({ initialQuery, sharedUntil }: Props) {
         getText={() => editorRef.current?.getText() ?? ""}
         showWhitespace={showWhitespace}
         onToggleWhitespace={() => setShowWhitespace((value) => !value)}
+        syntaxCheck={syntaxCheck}
+        onToggleSyntaxCheck={toggleSyntaxCheck}
         aiOpen={aiOpen}
         onToggleAi={() => setAiOpen((value) => !value)}
         onOpenConfigurations={() => setConfigurationsOpen(true)}
@@ -129,6 +135,8 @@ export function QueryWorkbench({ initialQuery, sharedUntil }: Props) {
             onParametersChange={setParameters}
             onTextChange={setText}
             showWhitespace={showWhitespace}
+            syntaxCheck={syntaxCheck}
+            onSyntaxErrors={setSyntaxErrors}
           />
         </div>
         <QueryStructure
@@ -168,6 +176,16 @@ export function QueryWorkbench({ initialQuery, sharedUntil }: Props) {
             {status.selected > 0 && <span>Выделено: {status.selected}</span>}
             <span>Строк: {status.lineCount}</span>
           </>
+        )}
+        {syntaxCheck && syntaxErrors > 0 && (
+          <button
+            type="button"
+            onClick={() => editorRef.current?.nextError()}
+            title="Перейти к ошибке (F8 — следующая)"
+            className="font-medium text-danger hover:underline"
+          >
+            Ошибок: {syntaxErrors}
+          </button>
         )}
         <button
           type="button"
