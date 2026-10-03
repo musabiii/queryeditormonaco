@@ -12,6 +12,9 @@ import {
   parseBatch,
   registerQueryLanguage,
   smartInsert,
+  tableAlias,
+  completionMetadata,
+  FIELD_DRAG_TYPE,
   tokenize,
   groupBySuggestion,
   isAggregateSnippet,
@@ -102,6 +105,7 @@ function normalizeLineBreaks(text: string) {
  * а в standalone-сборке сниппет применяется как обычный текст — «$0»
  * остаётся в запросе. Поэтому она отключена (dropIntoEditor), и текст
  * вставляется обычной правкой; курсор во время перетаскивания показывает место.
+ * Реквизит, чья таблица уже есть в запросе, вставляется с её псевдонимом.
  */
 function handleTextDrop(
   instance: editor.IStandaloneCodeEditor,
@@ -125,8 +129,8 @@ function handleTextDrop(
     const position = positionAt(event) ?? instance.getPosition();
     if (!text || !model || !position) return;
     event.preventDefault();
-    const inserted = normalizeLineBreaks(text);
     const offset = model.getOffsetAt(position);
+    const inserted = normalizeLineBreaks(withAlias(event, model.getValue(), offset) ?? text);
     instance.pushUndoStop();
     instance.executeEdits("drop", [{ range: monaco.Range.fromPositions(position), text: inserted }], () => {
       const end = model.getPositionAt(offset + inserted.length);
@@ -134,6 +138,20 @@ function handleTextDrop(
     });
     instance.pushUndoStop();
     instance.focus();
+  };
+
+  /** «Псевдоним.Реквизит», если таблица реквизита есть в запросе в месте вставки. */
+  const withAlias = (event: DragEvent, text: string, offset: number) => {
+    const index = completionMetadata();
+    const data = event.dataTransfer?.getData(FIELD_DRAG_TYPE);
+    if (!index || !data) return null;
+    try {
+      const { table, field } = JSON.parse(data) as { table: string[]; field: string };
+      const alias = tableAlias(text, offset, table, index);
+      return alias ? `${alias}.${field}` : null;
+    } catch {
+      return null;
+    }
   };
 
   container.addEventListener("dragover", onDragOver);

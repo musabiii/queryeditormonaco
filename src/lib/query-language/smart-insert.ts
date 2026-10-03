@@ -62,7 +62,8 @@ type ParsedQuery = {
   fromLast?: Token;
 };
 
-export function smartInsert(text: string, offset: number, target: SmartTarget, index: MetadataIndex): SmartInsertResult {
+/** Запрос пакета под курсором и смещение, прижатое к его тексту. */
+function locate(text: string, offset: number) {
   const tokens = tokenize(text).filter((token) => token.kind !== "comment");
   const statements = splitStatements(tokens);
   // Как в «Структуре запроса»: курсор в пустых строках после блока относится к этому блоку.
@@ -76,6 +77,35 @@ export function smartInsert(text: string, offset: number, target: SmartTarget, i
     const last = anchored.tokens[anchored.tokens.length - 1].end;
     offset = Math.min(Math.max(offset, first), last);
   }
+  return { statement, offset };
+}
+
+/** Таблица по пути: объект конфигурации или временная таблица, созданная до запроса под курсором. */
+function resolverAt(text: string, offset: number, index: MetadataIndex): Resolve {
+  const { tempTables } = analyzeQuery(text, offset, index);
+  return (path) => index.resolveTable(path) ?? (path.length === 1 ? tempTables.get(path[0].toLowerCase()) : undefined);
+}
+
+/** Реквизит из дерева конфигурации при перетаскивании в редактор: JSON { table, field }. */
+export const FIELD_DRAG_TYPE = "application/x-queryeditor-field";
+
+/**
+ * Псевдоним, под которым таблица уже есть в запросе под курсором, — для
+ * перетаскивания реквизита из дерева: «Сотрудники.Наименование».
+ */
+export function tableAlias(text: string, offset: number, table: string[], index: MetadataIndex): string | undefined {
+  const located = locate(text, offset);
+  if (!located.statement?.tokens.some((token) => is(token, "ВЫБРАТЬ", "SELECT"))) return undefined;
+  const scope = unionPart(innermostScope(located.statement.tokens, located.offset), located.offset);
+  const resolve = resolverAt(text, located.offset, index);
+  const key = tableKey(table, resolve(table), index);
+  return parseQuery(scope, index, resolve)?.sources.find((source) => source.key === key)?.alias;
+}
+
+export function smartInsert(text: string, offset: number, target: SmartTarget, index: MetadataIndex): SmartInsertResult {
+  const located = locate(text, offset);
+  const statement = located.statement;
+  offset = located.offset;
 
   const edits: TextEdit[] = [];
   const tablePath = target.kind === "table" ? target.path : target.table;
@@ -90,9 +120,7 @@ export function smartInsert(text: string, offset: number, target: SmartTarget, i
   } else {
     const scope = unionPart(innermostScope(statement.tokens, offset), offset);
     // Временные таблицы, созданные до этого запроса пакета.
-    const { tempTables } = analyzeQuery(text, offset, index);
-    const resolve: Resolve = (path) =>
-      index.resolveTable(path) ?? (path.length === 1 ? tempTables.get(path[0].toLowerCase()) : undefined);
+    const resolve = resolverAt(text, offset, index);
     const query = parseQuery(scope, index, resolve);
     if (query) editQuery(text, query, target, index, resolve, edits);
   }

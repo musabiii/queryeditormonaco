@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { MD_KINDS, type ConfigurationModel, type MdObject } from "@/lib/metadata/model";
-import { MetadataIndex, tempTablesOf, usedObjects, type SmartTarget, type TableField } from "@/lib/query-language";
+import { FIELD_DRAG_TYPE, MetadataIndex, tempTablesOf, usedObjects, type SmartTarget, type TableField } from "@/lib/query-language";
 import { ToolButton } from "../ToolButton";
 
 type Icon = "kind" | "object" | "group" | "table" | "virtual" | "field" | "value";
@@ -248,6 +248,10 @@ function TreeRow(props: { node: TreeNode; depth: number; open: boolean; onToggle
   const onDragStart = (event: DragEvent<HTMLDivElement>) => {
     if (!node.insert) return event.preventDefault();
     event.dataTransfer.setData("text/plain", node.insert);
+    // Редактор подставит псевдоним таблицы, если она уже есть в запросе.
+    if (node.target?.kind === "field") {
+      event.dataTransfer.setData(FIELD_DRAG_TYPE, JSON.stringify({ table: node.target.table, field: node.target.field }));
+    }
     event.dataTransfer.effectAllowed = "copy";
   };
 

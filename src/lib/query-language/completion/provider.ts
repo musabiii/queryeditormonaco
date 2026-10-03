@@ -24,6 +24,8 @@ export function setCompletionMetadata(model: ConfigurationModel | null) {
 }
 
 const currentIndex = () => (globalThis as MetadataStore)[METADATA] ?? null;
+/** Метаданные активной конфигурации — для перетаскивания реквизитов в редактор. */
+export const completionMetadata = currentIndex;
 
 /** Составные конструкции — подсказываются целиком. */
 const PHRASES: WordPair[] = [

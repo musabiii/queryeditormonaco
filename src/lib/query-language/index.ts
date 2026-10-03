@@ -12,11 +12,11 @@ export {
 } from "./function-catalog";
 export { formatQuery } from "./formatter";
 export { bslQueryCode, unwrapBslString } from "./bsl-string";
-export { smartInsert, type SmartTarget } from "./smart-insert";
+export { FIELD_DRAG_TYPE, smartInsert, tableAlias, type SmartTarget } from "./smart-insert";
 export { wrapSelectField } from "./field-function";
 export { groupByProposal, groupBySuggestion, isAggregateSnippet, type GroupByProposal } from "./group-by";
 export { queryTablesStructure, type TablesStructure } from "./table-structure";
 export { usedObjects } from "./used-objects";
 export { tempTablesOf } from "./completion/query-context";
-export { setCompletionMetadata } from "./completion/provider";
+export { completionMetadata, setCompletionMetadata } from "./completion/provider";
 export { MetadataIndex, type TableField } from "./completion/metadata-index";
