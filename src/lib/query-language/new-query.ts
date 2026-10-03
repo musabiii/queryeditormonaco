@@ -1,5 +1,6 @@
 /**
- * Заготовка по набранному в ВЫБРАТЬ пути к таблице «Справочник.МедицинскиеКарты»:
+ * Заготовка по набранному в ВЫБРАТЬ пути к таблице «Справочник.МедицинскиеКарты»
+ * или имени временной таблицы пакета «ВТ_Таблица»:
  *
  * - в блоке, где ещё нет запроса (или есть только «ВЫБРАТЬ»), — весь запрос:
  *
@@ -15,7 +16,7 @@
  */
 
 import { tokenize, type Token } from "./lexer";
-import { splitStatements } from "./completion/query-context";
+import { analyzeQuery, splitStatements } from "./completion/query-context";
 import { isAliasListPosition } from "./completion/provider";
 import type { MetadataIndex } from "./completion/metadata-index";
 import { tableJoin } from "./smart-insert";
@@ -36,7 +37,7 @@ const SELECT = ["ВЫБРАТЬ", "SELECT"];
 const SELECT_HEAD = ["ВЫБРАТЬ", "SELECT", "РАЗЛИЧНЫЕ", "DISTINCT", "РАЗРЕШЕННЫЕ", "ALLOWED"];
 const upper = (token: Token | undefined) => (token?.kind === "word" ? token.text.toUpperCase() : "");
 
-export function newQueryProposal(text: string, offset: number, index: MetadataIndex, eol = "\n"): NewQueryProposal | null {
+export function newQueryProposal(text: string, offset: number, index: MetadataIndex | null, eol = "\n"): NewQueryProposal | null {
   const tokens = tokenize(text);
   // Курсор в конце пути, дальше на строке пусто.
   const lineEnd = text.indexOf("\n", offset);
@@ -53,9 +54,14 @@ export function newQueryProposal(text: string, offset: number, index: MetadataIn
   let start = end;
   while (start >= 2 && own[start - 1].text === "." && own[start - 2].kind === "word") start -= 2;
   const pathTokens = own.slice(start, end + 1);
-  if (pathTokens.length < 3 || own[end].kind !== "word" || own[start - 1]?.text === ".") return null;
+  if (own[end].kind !== "word" || own[start - 1]?.text === ".") return null;
   const path = pathTokens.filter((_, i) => i % 2 === 0).map((token) => token.text);
-  if (!index.rootKind(path[0]) || !index.resolveTable(path)) return null;
+  // Таблица конфигурации или временная таблица, созданная раньше в пакете.
+  const isTable =
+    path.length > 1
+      ? Boolean(index?.rootKind(path[0]) && index.resolveTable(path))
+      : analyzeQuery(text, offset, index).tempTables.has(path[0].toLowerCase());
+  if (!isTable) return null;
 
   const before = own.slice(0, start);
   const onlyPath = end === own.length - 1 && (!before.length || (before.length === 1 && SELECT.includes(upper(before[0]))));
@@ -65,13 +71,14 @@ export function newQueryProposal(text: string, offset: number, index: MetadataIn
   // Новый элемент списка ВЫБРАТЬ: после ВЫБРАТЬ (РАЗЛИЧНЫЕ…) или запятой.
   const previous = before[before.length - 1];
   if (previous.text !== "," && !SELECT_HEAD.includes(upper(previous))) return null;
-  if (!isAliasListPosition(text, pathTokens[0].start)) return null;
+  // Соединение подбирается по метаданным — без конфигурации только новый запрос.
+  if (!index || !isAliasListPosition(text, pathTokens[0].start)) return null;
   return joinedTable(text, offset, path, pathTokens[0].start, index, eol);
 }
 
 function wholeQuery(text: string, offset: number, path: string[], first: Token, select: Token | undefined, eol: string): NewQueryProposal {
   // Псевдоним как у конструктора: МедицинскиеКарты, ТоварыНаСкладахОстатки.
-  const alias = path.slice(1).join("");
+  const alias = path.slice(1).join("") || path[0];
   const head = select ?? first;
   const lineStart = text.lastIndexOf("\n", head.start - 1) + 1;
   const indent = /^[ \t]*/.exec(text.slice(lineStart))![0];

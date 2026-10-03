@@ -75,7 +75,7 @@ export function createNewQueryPreview(instance: editor.IStandaloneCodeEditor, mo
     const model = instance.getModel();
     const position = instance.getPosition();
     const index = completionMetadata();
-    if (!model || !position || !index || !instance.getSelection()?.isEmpty()) return;
+    if (!model || !position || !instance.getSelection()?.isEmpty()) return;
     const offset = model.getOffsetAt(position);
     const proposal = newQueryProposal(model.getValue(), offset, index, model.getEOL());
     if (!proposal) return;
