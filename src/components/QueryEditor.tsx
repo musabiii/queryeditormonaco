@@ -6,6 +6,7 @@ import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } f
 import { commentLines, uncommentLines } from "@/lib/comment-lines";
 import { loadMonaco } from "@/lib/monaco-loader";
 import { createGroupByPreview } from "./group-by-preview";
+import { createNewQueryPreview } from "./new-query-preview";
 import {
   LANGUAGE_ID,
   collectParameters,
@@ -379,6 +380,7 @@ export function QueryEditor({
     editorRef.current = instance;
     const stopDrop = handleTextDrop(instance, monaco);
     groupByRef.current = createGroupByPreview(instance, monaco);
+    createNewQueryPreview(instance, monaco);
     instance.onDidDispose(() => {
       editorRef.current = null;
       stopDrop();
