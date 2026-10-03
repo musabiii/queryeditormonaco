@@ -51,6 +51,15 @@ export function analyzeQuery(text: string, offset: number, index: MetadataIndex 
   return { sources: sourcesOf(scope, ctx), tempTables: ctx.tempTables };
 }
 
+/** Все временные таблицы пакета (ПОМЕСТИТЬ) в порядке создания — для дерева конфигурации. */
+export function tempTablesOf(text: string, index: MetadataIndex | null): Extract<TableRef, { type: "derived" }>[] {
+  const ctx: Ctx = { index, tempTables: new Map() };
+  for (const statement of splitStatements(tokenize(text).filter((t) => t.kind !== "comment"))) {
+    registerTempTable(statement.tokens, ctx);
+  }
+  return [...ctx.tempTables.values()].filter((table) => table.type === "derived");
+}
+
 /** Поля, доступные после пути «Псевдоним.Поле.Поле…»; null — путь не распознан. */
 export function fieldsAfterPath(path: string[], context: QueryContext, index: MetadataIndex | null): TableField[] | null {
   const source = context.sources.get(path[0].toLowerCase()) ?? tempAsSource(path[0], context);

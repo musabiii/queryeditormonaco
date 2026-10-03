@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react";
 import { MD_KINDS, type ConfigurationModel, type MdObject } from "@/lib/metadata/model";
-import { MetadataIndex, usedObjects, type SmartTarget, type TableField } from "@/lib/query-language";
+import { MetadataIndex, tempTablesOf, usedObjects, type SmartTarget, type TableField } from "@/lib/query-language";
 import { ToolButton } from "../ToolButton";
 
 type Icon = "kind" | "object" | "group" | "table" | "virtual" | "field" | "value";
@@ -51,7 +51,9 @@ export function ConfigurationTree({ open, model, loading, text, onInsert, onSmar
 
   const query = search.trim().toLowerCase();
   const used = useMemo(() => (index && onlyUsed ? usedObjects(text, index) : null), [index, onlyUsed, text]);
-  const roots = useMemo(() => (index ? kindNodes(index, query, used) : []), [index, query, used]);
+  // Пока панель закрыта, текст не разбираем.
+  const temps = useMemo(() => (index && open ? tempTableNodes(index, text, query) : []), [index, open, text, query]);
+  const roots = useMemo(() => (index ? [...kindNodes(index, query, used), ...temps] : []), [index, query, used, temps]);
 
   const toggle = (id: string) =>
     setExpanded((set) => {
@@ -328,6 +330,31 @@ function kindNodes(index: MetadataIndex, query: string, used: Set<MdObject> | nu
       },
     ];
   });
+}
+
+/** Временные таблицы из текста запроса — в конце дерева, как в конструкторе запросов 1С. */
+function tempTableNodes(index: MetadataIndex, text: string, query: string): TreeNode[] {
+  const tables = tempTablesOf(text, index).filter((table) => table.name.toLowerCase().includes(query));
+  if (!tables.length) return [];
+  const id = "temp";
+  return [
+    {
+      id,
+      label: "Временные таблицы",
+      detail: String(tables.length),
+      icon: "kind",
+      children: () =>
+        tables.map((table) => ({
+          id: `${id}/${table.name}`,
+          label: table.name,
+          title: "Временная таблица",
+          icon: "table" as const,
+          insert: table.name,
+          target: { kind: "table" as const, path: [table.name] },
+          children: () => fieldNodes(table.fields, `${id}/${table.name}`, [table.name]),
+        })),
+    },
+  ];
 }
 
 function objectNode(index: MetadataIndex, object: MdObject, id: string, queryName: string): TreeNode {

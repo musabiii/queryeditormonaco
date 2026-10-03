@@ -5,6 +5,7 @@
  *   в ИЗ, — левым соединением;
  * - таблица добавляется левым соединением;
  * - условие ПО подбирается по типам реквизитов, иначе ИСТИНА (выделяется);
+ * - временные таблицы предыдущих запросов пакета — тоже таблицы, со своими полями;
  * - нет ИЗ — таблица становится первым источником, нет запроса — создаётся.
  */
 
@@ -14,6 +15,7 @@ import {
   AFTER_FROM,
   AFTER_SELECT,
   SELECT_MODIFIERS,
+  analyzeQuery,
   innermostScope,
   isKeyword,
   matchParen,
@@ -76,12 +78,23 @@ export function smartInsert(text: string, offset: number, target: SmartTarget, i
   }
 
   const edits: TextEdit[] = [];
-  if (!statement.tokens.some((token) => is(token, "ВЫБРАТЬ", "SELECT"))) {
+  const tablePath = target.kind === "table" ? target.path : target.table;
+  // Временная таблица этого же запроса (курсор в пустых строках после него) — новый запрос из неё.
+  const createsTarget =
+    tablePath.length === 1 &&
+    statement.tokens.some(
+      (token, i) => is(token, "ПОМЕСТИТЬ", "INTO") && statement.tokens[i + 1]?.text.toLowerCase() === tablePath[0].toLowerCase(),
+    );
+  if (createsTarget || !statement.tokens.some((token) => is(token, "ВЫБРАТЬ", "SELECT"))) {
     edits.push(newQuery(text, statement.tokens, offset, target));
   } else {
     const scope = unionPart(innermostScope(statement.tokens, offset), offset);
-    const query = parseQuery(scope, index);
-    if (query) editQuery(text, query, target, index, edits);
+    // Временные таблицы, созданные до этого запроса пакета.
+    const { tempTables } = analyzeQuery(text, offset, index);
+    const resolve: Resolve = (path) =>
+      index.resolveTable(path) ?? (path.length === 1 ? tempTables.get(path[0].toLowerCase()) : undefined);
+    const query = parseQuery(scope, index, resolve);
+    if (query) editQuery(text, query, target, index, resolve, edits);
   }
   return finish(text, edits, offset);
 }
@@ -104,9 +117,19 @@ function newQuery(text: string, statementTokens: Token[], offset: number, target
 
 // ---------- Изменение запроса ----------
 
-function editQuery(text: string, query: ParsedQuery, target: SmartTarget, index: MetadataIndex, edits: TextEdit[]) {
+/** Таблица по пути из запроса: объект конфигурации или временная таблица. */
+type Resolve = (path: string[]) => TableRef | undefined;
+
+function editQuery(
+  text: string,
+  query: ParsedQuery,
+  target: SmartTarget,
+  index: MetadataIndex,
+  resolve: Resolve,
+  edits: TextEdit[],
+) {
   const tablePath = target.kind === "table" ? target.path : target.table;
-  const table = index.resolveTable(tablePath);
+  const table = resolve(tablePath);
   const key = tableKey(tablePath, table, index);
 
   // Реквизит таблицы, которая уже есть в запросе, — берём её псевдоним.
@@ -168,7 +191,7 @@ function joinEdit(text: string, query: ParsedQuery, table: string, alias: string
 
 // ---------- Разбор запроса ----------
 
-function parseQuery(scope: Token[], index: MetadataIndex): ParsedQuery | null {
+function parseQuery(scope: Token[], index: MetadataIndex, resolve: Resolve): ParsedQuery | null {
   const depthAt: number[] = [];
   let depth = 0;
   for (const token of scope) {
@@ -208,7 +231,7 @@ function parseQuery(scope: Token[], index: MetadataIndex): ParsedQuery | null {
     const token = scope[k];
     if (expect) {
       expect = false;
-      k = readSource(scope, k, index, sources) - 1;
+      k = readSource(scope, k, index, resolve, sources) - 1;
     } else if (token.text === "(") {
       k = matchParen(scope, k);
     } else if (is(token, "СОЕДИНЕНИЕ", "JOIN") || token.text === ",") {
@@ -219,7 +242,7 @@ function parseQuery(scope: Token[], index: MetadataIndex): ParsedQuery | null {
 }
 
 /** Источник: путь к таблице или вложенный запрос в скобках, затем псевдоним. */
-function readSource(tokens: Token[], i: number, index: MetadataIndex, sources: ParsedSource[]): number {
+function readSource(tokens: Token[], i: number, index: MetadataIndex, resolve: Resolve, sources: ParsedSource[]): number {
   const first = tokens[i];
   let path: string[] = [];
   if (first?.text === "(") {
@@ -244,7 +267,7 @@ function readSource(tokens: Token[], i: number, index: MetadataIndex, sources: P
     alias = tokens[i].text;
     i++;
   }
-  const table = path.length ? index.resolveTable(path) : undefined;
+  const table = path.length ? resolve(path) : undefined;
   if (alias) sources.push({ alias, key: tableKey(path, table, index), table, first });
   return i;
 }
@@ -260,13 +283,14 @@ function refType(table: TableRef, index: MetadataIndex): string | undefined {
 const hasType = (types: string[], type: string) => types.some((t) => t.toLowerCase() === type);
 
 function joinCondition(table: TableRef | undefined, alias: string, sources: ParsedSource[], index: MetadataIndex): string | null {
-  if (!table || table.type === "derived") return null;
-  const withTables = sources.filter((source) => source.table && source.table.type !== "derived");
+  if (!table) return null;
+  // Временные таблицы соединяются по своим полям с типами из запроса, их создавшего.
+  const withTables = sources.filter((source) => source.table);
 
   // Табличная часть и её объект (или другая табличная часть того же объекта).
   for (const source of withTables) {
     const other = source.table!;
-    if (other.type === "derived") continue;
+    if (other.type === "derived" || table.type === "derived") continue;
     const sameObject = other.object === table.object;
     if (sameObject && (table.type === "tabular" || other.type === "tabular")) {
       return `${alias}.Ссылка = ${source.alias}.Ссылка`;
