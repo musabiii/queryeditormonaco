@@ -3,6 +3,7 @@ import { registerCompletion } from "./completion/provider";
 import { formatQuery } from "./formatter";
 import { groupBySuggestion } from "./group-by";
 import { LANGUAGE_ID, languageConfiguration, monarchLanguage } from "./grammar";
+import { linkedAliasRanges } from "./linked-aliases";
 import { themes } from "./themes";
 
 // Тип Monaco из @monaco-editor/react ссылается на путь, которого нет в monaco-editor 0.56+.
@@ -12,6 +13,9 @@ type Monaco = typeof MonacoApi;
 // при горячей перезагрузке, поэтому храним их глобально, а не в переменной модуля.
 const REGISTRATION = Symbol.for("queryeditor.sdbl.registration");
 type RegistrationStore = { [REGISTRATION]?: MonacoApi.IDisposable[] };
+
+/** Каким может быть псевдоним во время связанной правки. */
+const ALIAS_PATTERN = /[\p{L}_][\p{L}\p{N}_]*/u;
 
 /**
  * Регистрирует язык запросов 1С, его провайдеры и темы в Monaco.
@@ -40,6 +44,17 @@ export function registerQueryLanguage(monaco: Monaco) {
       },
     }),
     ...registerCompletion(monaco, LANGUAGE_ID),
+    // Правка псевдонима таблицы меняет его во всём запросе (опция редактора linkedEditing).
+    monaco.languages.registerLinkedEditingRangeProvider(LANGUAGE_ID, {
+      provideLinkedEditingRanges(model, position) {
+        const ranges = linkedAliasRanges(model.getValue(), model.getOffsetAt(position));
+        if (!ranges) return null;
+        return {
+          ranges: ranges.map(({ start, end }) => monaco.Range.fromPositions(model.getPositionAt(start), model.getPositionAt(end))),
+          wordPattern: ALIAS_PATTERN,
+        };
+      },
+    }),
     // Серым текстом — «СГРУППИРОВАТЬ ПО» с полями вне агрегатов; Tab вставляет.
     monaco.languages.registerInlineCompletionsProvider(LANGUAGE_ID, {
       provideInlineCompletions(model, position) {

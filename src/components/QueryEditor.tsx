@@ -88,6 +88,8 @@ const OPTIONS: editor.IStandaloneEditorConstructionOptions = {
   unusualLineTerminators: "auto",
   // Перетаскивание обрабатываем сами — см. handleTextDrop.
   dropIntoEditor: { enabled: false },
+  // Псевдоним таблицы правится сразу во всём запросе — см. linked-aliases.ts.
+  linkedEditing: true,
 };
 
 /** Разделитель запросов пакета, как у конструктора запросов 1С. */
