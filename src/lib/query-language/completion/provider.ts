@@ -46,18 +46,22 @@ const IDENT = "[\\p{L}_][\\p{L}\\p{N}_]*";
 /** Цепочка «А.Б.» и недописанное слово перед курсором. */
 const CHAIN_BEFORE_CURSOR = new RegExp(`((?:${IDENT}\\s*\\.\\s*)*)(${IDENT})?$`, "u");
 const WORD_AT = new RegExp(IDENT, "gu");
+/** «Псевдоним.Поле = » перед курсором (возможно, с начатым словом) — сравнение с полем. */
+const COMPARISON_BEFORE_CURSOR = new RegExp(`(${IDENT}(?:\\s*\\.\\s*${IDENT})+)\\s*(?:=|<>)\\s*(${IDENT})?$`, "u");
 
 export function registerCompletion(monaco: Monaco, languageId: string): MonacoApi.IDisposable[] {
   const { CompletionItemKind: Kind, CompletionItemInsertTextRule: Rule } = monaco.languages;
 
   const completion = monaco.languages.registerCompletionItemProvider(languageId, {
-    triggerCharacters: ["."],
-    provideCompletionItems(model, position) {
+    // Пробел — только чтобы после «Поле = » сразу показать значения.
+    triggerCharacters: [".", " "],
+    provideCompletionItems(model, position, trigger) {
       const text = model.getValue();
       const offset = model.getOffsetAt(position);
       if (insideStringOrComment(text, offset)) return { suggestions: [] };
 
       const line = model.getLineContent(position.lineNumber).slice(0, position.column - 1);
+      const bySpace = trigger.triggerCharacter === " ";
       const match = CHAIN_BEFORE_CURSOR.exec(line);
       const chain = (match?.[1] ?? "").split(".").map((s) => s.trim()).filter(Boolean);
       const prefix = match?.[2] ?? "";
@@ -72,6 +76,12 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
       const context = analyzeQuery(text, offset, index);
       const english = /^[A-Za-z]/.test(prefix);
       const item = (partial: Omit<CompletionItem, "range">): CompletionItem => ({ ...partial, range });
+
+      // «Т.Поле = » — значения перечисления, предопределённые элементы и пустая ссылка по типу поля.
+      const comparison = COMPARISON_BEFORE_CURSOR.exec(line);
+      const valueItems = comparison && index ? comparisonValues(comparison[1], context, index) : [];
+      if (bySpace) return { suggestions: comparison && !comparison[2] ? valueItems.map(item) : [] };
+      if (comparison && !comparison[2] && valueItems.length) return { suggestions: valueItems.map(item) };
 
       // После точки: объекты вида, таблицы объекта или поля.
       if (chain.length > 0) {
@@ -105,9 +115,38 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
         const word = pick(pair);
         suggestions.push(item({ label: word, kind: Kind.Module, insertText: word, sortText: `2${word}` }));
       }
-      return { suggestions: dedupe(suggestions) };
+      return { suggestions: dedupe([...valueItems.map(item), ...suggestions]) };
     },
   });
+
+  /** Варианты значения для сравнения с полем: ЗНАЧЕНИЕ(Перечисление.Пол.Мужской) и т.п. */
+  function comparisonValues(rawPath: string, context: QueryContext, index: MetadataIndex): Omit<CompletionItem, "range">[] {
+    const path = rawPath.split(".").map((part) => part.trim());
+    const field = fieldAtPath(path, context, index);
+    if (!field) return [];
+    const items: Omit<CompletionItem, "range">[] = [];
+    let order = 0;
+    for (const type of field.types) {
+      const object = index.objectByType(type);
+      if (!object) continue;
+      const full = `${queryNameOf(object.kind)}.${object.name}`;
+      const value = (name: string, kind: MonacoApi.languages.CompletionItemKind, documentation?: string) =>
+        items.push({
+          label: { label: name, description: full },
+          kind,
+          insertText: `ЗНАЧЕНИЕ(${full}.${name})`,
+          filterText: name,
+          detail: `ЗНАЧЕНИЕ(${full}.${name})`,
+          documentation,
+          // Порядок как в метаданных: сначала типы поля, внутри — значения по порядку.
+          sortText: `0${String(order++).padStart(5, "0")}`,
+        });
+      for (const name of object.values ?? []) value(name, Kind.EnumMember);
+      for (const predefined of object.predefined ?? []) value(predefined.name, Kind.EnumMember, predefined.description);
+      if (object.kind !== "InformationRegister" && object.kind !== "AccumulationRegister") value("ПустаяСсылка", Kind.Constant);
+    }
+    return items;
+  }
 
   function afterDot(chain: string[], context: QueryContext, index: MetadataIndex | null): Omit<CompletionItem, "range">[] {
     const rootKind = index?.rootKind(chain[0]);
