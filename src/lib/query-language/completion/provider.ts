@@ -77,11 +77,11 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
       const english = /^[A-Za-z]/.test(prefix);
       const item = (partial: Omit<CompletionItem, "range">): CompletionItem => ({ ...partial, range });
 
-      // «Т.Поле = » — значения перечисления, предопределённые элементы и пустая ссылка по типу поля.
+      // «Т.Поле = » — параметр, значения перечисления, предопределённые элементы и пустая ссылка;
+      // по пробелу — только они, по Ctrl+Space — сверху общего списка.
       const comparison = COMPARISON_BEFORE_CURSOR.exec(line);
-      const valueItems = comparison && index ? comparisonValues(comparison[1], context, index) : [];
+      const valueItems = comparison ? comparisonValues(comparison[1], context, index) : [];
       if (bySpace) return { suggestions: comparison && !comparison[2] ? valueItems.map(item) : [] };
-      if (comparison && !comparison[2] && valueItems.length) return { suggestions: valueItems.map(item) };
 
       // После точки: объекты вида, таблицы объекта или поля.
       if (chain.length > 0) {
@@ -119,14 +119,26 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
     },
   });
 
-  /** Варианты значения для сравнения с полем: ЗНАЧЕНИЕ(Перечисление.Пол.Мужской) и т.п. */
-  function comparisonValues(rawPath: string, context: QueryContext, index: MetadataIndex): Omit<CompletionItem, "range">[] {
+  /**
+   * Варианты значения для сравнения с полем: всегда параметр «&ИмяПоля», для булева —
+   * ИСТИНА и ЛОЖЬ, для ссылочных типов — ЗНАЧЕНИЕ(Перечисление.Пол.Мужской) и т.п.
+   */
+  function comparisonValues(rawPath: string, context: QueryContext, index: MetadataIndex | null): Omit<CompletionItem, "range">[] {
     const path = rawPath.split(".").map((part) => part.trim());
-    const field = fieldAtPath(path, context, index);
-    if (!field) return [];
-    const items: Omit<CompletionItem, "range">[] = [];
+    const parameter = `&${path[path.length - 1]}`;
+    const items: Omit<CompletionItem, "range">[] = [
+      { label: parameter, kind: Kind.Variable, insertText: parameter, detail: "Параметр запроса", sortText: "!0" },
+    ];
+    const field = index && fieldAtPath(path, context, index);
+    if (!index || !field) return items;
     let order = 0;
     for (const type of field.types) {
+      if (type === "Булево") {
+        for (const word of ["ИСТИНА", "ЛОЖЬ"]) {
+          items.push({ label: word, kind: Kind.Keyword, insertText: word, sortText: `!1${String(order++).padStart(5, "0")}` });
+        }
+        continue;
+      }
       const object = index.objectByType(type);
       if (!object) continue;
       const full = `${queryNameOf(object.kind)}.${object.name}`;
@@ -139,7 +151,7 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
           detail: `ЗНАЧЕНИЕ(${full}.${name})`,
           documentation,
           // Порядок как в метаданных: сначала типы поля, внутри — значения по порядку.
-          sortText: `0${String(order++).padStart(5, "0")}`,
+          sortText: `!1${String(order++).padStart(5, "0")}`,
         });
       for (const name of object.values ?? []) value(name, Kind.EnumMember);
       for (const predefined of object.predefined ?? []) value(predefined.name, Kind.EnumMember, predefined.description);
@@ -280,7 +292,8 @@ function insideStringOrComment(text: string, offset: number): boolean {
 function dedupe(items: CompletionItem[]): CompletionItem[] {
   const seen = new Set<string>();
   return items.filter((item) => {
-    const key = `${typeof item.label === "string" ? item.label : item.label.label}|${item.kind}`;
+    // ПустаяСсылка разных типов составного поля — разные варианты.
+    const key = typeof item.label === "string" ? `${item.label}|${item.kind}` : `${item.label.label}|${item.label.description}|${item.kind}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
