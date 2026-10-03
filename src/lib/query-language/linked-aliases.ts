@@ -9,7 +9,7 @@
  */
 
 import { tokenize, type Token } from "./lexer";
-import { AFTER_FROM, innermostScope, matchParen, splitStatements, unionPart } from "./completion/query-context";
+import { AFTER_FROM, innermostScope, isKeyword, matchParen, splitStatements, unionPart } from "./completion/query-context";
 
 export type TextRange = { start: number; end: number };
 
@@ -47,7 +47,9 @@ export function linkedAliasRanges(text: string, offset: number): TextRange[] | n
 
 /**
  * Имя временной таблицы после ПОМЕСТИТЬ — и его упоминания в следующих запросах
- * пакета: источники, УНИЧТОЖИТЬ, пути «ВТ.Поле» без псевдонима. До запроса,
+ * пакета: источники, УНИЧТОЖИТЬ, пути «ВТ.Поле», если таблица подключена без псевдонима
+ * или с псевдонимом, равным имени («ИЗ ВТ КАК ВТ» — меняется и псевдоним); псевдоним
+ * другой таблицы «КАК ВТ» и пути через него не трогаются. До запроса,
  * который создаёт таблицу с тем же именем заново, или до УНИЧТОЖИТЬ включительно.
  */
 function tempTableRanges(following: { tokens: Token[] }[], definition: Token): TextRange[] {
@@ -58,8 +60,26 @@ function tempTableRanges(following: { tokens: Token[] }[], definition: Token): T
     const list = statement.tokens;
     // Пересоздана — дальше это уже другая таблица.
     if (list.some((token, i) => same(token) && is(list[i - 1], "ПОМЕСТИТЬ", "INTO"))) break;
+    // Источник — имя без точки по бокам и не после КАК («КАК ВТ» — псевдоним другой таблицы).
+    const sources = list.filter(
+      (token, i) => same(token) && list[i - 1]?.text !== "." && list[i + 1]?.text !== "." && !is(list[i - 1], "КАК", "AS"),
+    );
+    // Пути «ВТ.Поле» — только если «ВТ» здесь означает эту таблицу: она подключена
+    // без псевдонима или с псевдонимом, равным имени («ИЗ ВТ КАК ВТ» — меняется и он).
+    const sameAliases = sources.flatMap((token) => {
+      const i = list.indexOf(token);
+      return is(list[i + 1], "КАК", "AS") && same(list[i + 2]) ? [list[i + 2]] : [];
+    });
+    const implicitAlias = sources.some((token) => {
+      const next = list[list.indexOf(token) + 1];
+      return !is(next, "КАК", "AS") && (next?.kind !== "word" || isKeyword(next));
+    });
+    const renamePaths = implicitAlias || sameAliases.length > 0;
     list.forEach((token, i) => {
-      if (same(token) && list[i - 1]?.text !== ".") ranges.push({ start: token.start, end: token.end });
+      const path = same(token) && list[i + 1]?.text === "." && list[i - 1]?.text !== ".";
+      if (sources.includes(token) || sameAliases.includes(token) || (path && renamePaths)) {
+        ranges.push({ start: token.start, end: token.end });
+      }
     });
     if (is(list[0], "УНИЧТОЖИТЬ", "DROP") && same(list[1])) break;
   }
