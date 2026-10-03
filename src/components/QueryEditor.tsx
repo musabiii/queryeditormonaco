@@ -15,6 +15,7 @@ import {
   tableAlias,
   completionMetadata,
   FIELD_DRAG_TYPE,
+  isAfterWhere,
   tokenize,
   groupBySuggestion,
   isAggregateSnippet,
@@ -434,9 +435,18 @@ export function QueryEditor({
     });
     instance.onDidDispose(() => clearTimeout(suggestTimer));
 
-    instance.onDidChangeModelContent(() => {
+    instance.onDidChangeModelContent((event) => {
       reportBatch();
       reportStatus();
+      // Enter или Tab после «ГДЕ» — сразу список псевдонимов (пробел Monaco обрабатывает сам).
+      const typed = event.changes.length === 1 ? event.changes[0].text : "";
+      const model = instance.getModel();
+      const position = instance.getPosition();
+      if (model && position && typed.trim() === "" && /[\n\t]/.test(typed) && !event.isUndoing && !event.isRedoing) {
+        if (isAfterWhere(model.getValue(), model.getOffsetAt(position))) {
+          setTimeout(() => instance.trigger("where", "editor.action.triggerSuggest", {}));
+        }
+      }
     });
     reportBatch();
     reportStatus();

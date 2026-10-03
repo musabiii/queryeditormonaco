@@ -46,6 +46,43 @@ const IDENT = "[\\p{L}_][\\p{L}\\p{N}_]*";
 /** Цепочка «А.Б.» и недописанное слово перед курсором. */
 const CHAIN_BEFORE_CURSOR = new RegExp(`((?:${IDENT}\\s*\\.\\s*)*)(${IDENT})?$`, "u");
 const WORD_AT = new RegExp(IDENT, "gu");
+/** «ГДЕ», «И», «ИЛИ», «НЕ» и пробел или перевод строки перед курсором. */
+const CONDITION_WORD = /(?:^|[^\p{L}\p{N}_])(ГДЕ|WHERE|И|AND|ИЛИ|OR|НЕ|NOT)\s+$/iu;
+/** Разделы запроса: по ближайшему из них слева понятно, что курсор в ГДЕ. */
+const CLAUSES = new Set(["ВЫБРАТЬ", "SELECT", "ИЗ", "FROM", "ПО", "ON", "BY", "ГДЕ", "WHERE", "СГРУППИРОВАТЬ", "GROUP", "ИМЕЮЩИЕ", "HAVING", "УПОРЯДОЧИТЬ", "ORDER", "ИТОГИ", "TOTALS", "ОБЪЕДИНИТЬ", "UNION", "ПОМЕСТИТЬ", "INTO"]);
+
+/**
+ * Начало условия в разделе ГДЕ — пора выбирать таблицу: после «ГДЕ», а также после
+ * «И», «ИЛИ», «НЕ» внутри ГДЕ (кроме «И» в «МЕЖДУ … И …»).
+ */
+export function isAfterWhere(text: string, offset: number): boolean {
+  const match = CONDITION_WORD.exec(text.slice(Math.max(0, offset - 100), offset));
+  if (!match || insideStringOrComment(text, offset)) return false;
+  const word = match[1].toUpperCase();
+  if (word === "ГДЕ" || word === "WHERE") return true;
+
+  // Слова до «И/ИЛИ/НЕ» на том же уровне скобок: ближайший раздел должен быть ГДЕ.
+  const tokens = tokenize(text).filter((token) => token.kind !== "comment" && token.end <= offset);
+  tokens.pop();
+  let depth = 0;
+  let seenAnd = false;
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const token = tokens[i];
+    if (token.text === ")") depth++;
+    else if (token.text === "(") {
+      // Начало скобки — условие внутри «( … И |» продолжается левее.
+      if (depth === 0) continue;
+      depth--;
+    } else if (token.text === ";") return false;
+    if (depth > 0 || token.kind !== "word") continue;
+    const upper = token.text.toUpperCase();
+    if ((upper === "И" || upper === "AND") && !seenAnd) seenAnd = true;
+    if ((upper === "МЕЖДУ" || upper === "BETWEEN") && (word === "И" || word === "AND") && !seenAnd) return false;
+    if (CLAUSES.has(upper)) return upper === "ГДЕ" || upper === "WHERE";
+  }
+  return false;
+}
+
 /** «Псевдоним.Поле = » перед курсором (возможно, с начатым словом) — сравнение с полем. */
 const COMPARISON_BEFORE_CURSOR = new RegExp(`(${IDENT}(?:\\s*\\.\\s*${IDENT})+)\\s*(?:=|<>)\\s*(${IDENT})?$`, "u");
 
@@ -81,7 +118,26 @@ export function registerCompletion(monaco: Monaco, languageId: string): MonacoAp
       // по пробелу — только они, по Ctrl+Space — сверху общего списка.
       const comparison = COMPARISON_BEFORE_CURSOR.exec(line);
       const valueItems = comparison ? comparisonValues(comparison[1], context, index) : [];
-      if (bySpace) return { suggestions: comparison && !comparison[2] ? valueItems.map(item) : [] };
+      // После «ГДЕ » — псевдонимы таблиц запроса; выбранный дополняется точкой и списком полей.
+      // incomplete: начатое слово запрашивает полный список заново.
+      const afterWhere = !prefix && chain.length === 0 && isAfterWhere(text, offset);
+      const aliasItems = afterWhere
+        ? [...context.sources.values()].map((source, i) =>
+            item({
+              label: source.alias,
+              kind: Kind.Variable,
+              insertText: `${source.alias}.`,
+              detail: describeSource(source.table, index),
+              sortText: String(i).padStart(4, "0"), // в порядке таблиц в ИЗ
+              command: { id: "editor.action.triggerSuggest", title: "Поля" },
+            }),
+          )
+        : [];
+      if (bySpace) {
+        if (comparison && !comparison[2]) return { suggestions: valueItems.map(item) };
+        return { suggestions: aliasItems };
+      }
+      if (aliasItems.length) return { suggestions: aliasItems, incomplete: true };
 
       // После точки: объекты вида, таблицы объекта или поля.
       if (chain.length > 0) {
