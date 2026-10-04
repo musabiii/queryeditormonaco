@@ -10,7 +10,7 @@ export const DARK_MEDIA_QUERY = "(prefers-color-scheme: dark)";
 
 /**
  * Идентификатор схемы по сохранённому значению. Раньше хранилось «light»/«dark» —
- * такой выбор переносится на классическую светлую и тёмную схемы.
+ * такой выбор переносится на светлую и тёмную схемы по умолчанию.
  */
 export function resolveSchemeId(saved: string | null, prefersDark: boolean): string {
   if (saved === "light") return DEFAULT_LIGHT_SCHEME;

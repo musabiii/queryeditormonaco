@@ -236,9 +236,9 @@ export const COLOR_SCHEMES: readonly ColorScheme[] = [
   },
 ];
 
-export const DEFAULT_LIGHT_SCHEME = "1c-classic";
+export const DEFAULT_LIGHT_SCHEME = "vs-light";
 export const DEFAULT_DARK_SCHEME = "dark-plus";
 
 export function getColorScheme(id: string): ColorScheme {
-  return COLOR_SCHEMES.find((scheme) => scheme.id === id) ?? COLOR_SCHEMES[0];
+  return COLOR_SCHEMES.find((scheme) => scheme.id === id) ?? COLOR_SCHEMES.find((scheme) => scheme.id === DEFAULT_LIGHT_SCHEME)!;
 }

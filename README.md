@@ -64,7 +64,7 @@ Anthropic и Google, скорее всего, недоступны.
   - `batch.ts` — разбор пакета на запросы для панели «Структура запроса»;
   - `formatter.ts` — форматирование в стиле конструктора запросов (Shift+Alt+F).
 
-- **Цветовые схемы** (`src/lib/color-schemes.ts`): 1С (классическая), VS Code Light/Dark,
+- **Цветовые схемы** (`src/lib/color-schemes.ts`): 1С (классическая), VS Code Light/Dark (по умолчанию — по теме системы),
   GitHub Light/Dark, Solarized Light/Dark, Dracula, One Dark, Monokai, Nord, Tokyo Night.
   Схема задаёт цвета подсветки, редактора и интерфейса; новая схема — одна запись в этом файле.
 - **Метаданные конфигурации** (`src/lib/metadata/`): кнопка «Конфигурации» загружает выгрузку
