@@ -4,9 +4,7 @@ node_modules
 public/monaco
 
 # Выгрузки конфигураций (сотни МБ) — в образ попадают только готовые модели из public/configurations.
-zupfiles
-medicine
-univer
+confexample
 
 .git
 data

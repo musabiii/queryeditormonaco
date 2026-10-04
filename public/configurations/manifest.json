@@ -28,7 +28,8 @@
       "sourceFiles": 2335,
       "parseSeconds": 4.161627500000001
     },
-    "builtinFile": "zup-3.1.20.97.json.gz"
+    "builtinFile": "zup-3.1.20.97.json.gz",
+    "builtinBytes": 497693
   },
   {
     "id": "builtin:medicine@2.0.16.1",
@@ -57,7 +58,8 @@
       "sourceFiles": 2556,
       "parseSeconds": 4.056051999999999
     },
-    "builtinFile": "medicine-2.0.16.1.json.gz"
+    "builtinFile": "medicine-2.0.16.1.json.gz",
+    "builtinBytes": 344285
   },
   {
     "id": "builtin:univer@2.2.15.20",
@@ -86,6 +88,37 @@
       "sourceFiles": 1894,
       "parseSeconds": 2.8803118000000003
     },
-    "builtinFile": "univer-2.2.15.20.json.gz"
+    "builtinFile": "univer-2.2.15.20.json.gz",
+    "builtinBytes": 280082
+  },
+  {
+    "id": "builtin:ut@11.5.27.95",
+    "name": "УправлениеТорговлей",
+    "synonym": "Управление торговлей, редакция 11",
+    "version": "11.5.27.95",
+    "vendor": "Фирма \"1С\"",
+    "loadedAt": "2026-10-04T15:39:28.248Z",
+    "counts": {
+      "Catalog": 519,
+      "Document": 298,
+      "DocumentJournal": 11,
+      "Enum": 977,
+      "ChartOfCharacteristicTypes": 9,
+      "InformationRegister": 851,
+      "AccumulationRegister": 104,
+      "BusinessProcess": 7,
+      "Task": 1,
+      "ExchangePlan": 22,
+      "Constant": 957,
+      "FilterCriterion": 7
+    },
+    "stats": {
+      "modelBytes": 7110681,
+      "sourceBytes": 88368584,
+      "sourceFiles": 4280,
+      "parseSeconds": 7.2063387
+    },
+    "builtinFile": "ut-11.5.27.95.json.gz",
+    "builtinBytes": 702118
   }
 ]

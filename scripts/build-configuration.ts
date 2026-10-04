@@ -83,6 +83,7 @@ async function main() {
       parseSeconds,
     }),
     builtinFile: file,
+    builtinBytes: compressed.length,
   };
   const manifest: ConfigurationSummary[] = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, "utf8")) : [];
   const others = manifest.filter((item) => !item.id.startsWith(`builtin:${slug}@`));

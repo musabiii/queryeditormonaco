@@ -143,6 +143,8 @@ export type ConfigurationSummary = {
    * скриптом scripts/build-configuration.ts). У загруженных пользователем — нет.
    */
   builtinFile?: string;
+  /** Размер файла builtinFile — сколько скачивается при первом выборе. */
+  builtinBytes?: number;
 };
 
 export function summarize(model: ConfigurationModel, stats?: ImportStats): ConfigurationSummary {

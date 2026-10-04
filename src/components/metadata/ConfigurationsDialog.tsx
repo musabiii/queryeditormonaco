@@ -182,8 +182,9 @@ function ConfigurationRow(props: {
   const loaded = new Date(summary.loadedAt).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
 
   return (
-    <div
-      className={`flex items-start gap-3 rounded-md border px-3 py-2.5 ${active ? "border-foreground/40 bg-panel" : "border-border"}`}
+    // Выбор — щелчком по всему блоку, не только по кружку (кнопки удаления внутри метки его не включают).
+    <label
+      className={`flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 ${active ? "border-foreground/40 bg-panel" : "border-border hover:bg-panel"}`}
     >
       <input
         type="radio"
@@ -198,13 +199,17 @@ function ConfigurationRow(props: {
           {summary.synonym ?? summary.name}
           {summary.version && <span className="ml-2 font-normal text-muted">{summary.version}</span>}
         </div>
-        <div className="text-xs text-muted">{countsLine(summary.counts)}</div>
-        {summary.stats && <div className="text-xs text-muted">{statsLine(summary.stats)}</div>}
-        {/* У встроенных дата сборки не нужна — только поставщик. */}
-        {(summary.vendor || !summary.builtinFile) && (
+        {summary.builtinFile ? (
+          // У типовых — только сколько скачивать и поставщик.
           <div className="text-xs text-muted">
-            {[summary.vendor, !summary.builtinFile && `загружена ${loaded}`].filter(Boolean).join(" · ")}
+            {[summary.builtinBytes && formatSize(summary.builtinBytes), summary.vendor].filter(Boolean).join(" · ")}
           </div>
+        ) : (
+          <>
+            <div className="text-xs text-muted">{countsLine(summary.counts)}</div>
+            {summary.stats && <div className="text-xs text-muted">{statsLine(summary.stats)}</div>}
+            <div className="text-xs text-muted">{[summary.vendor, `загружена ${loaded}`].filter(Boolean).join(" · ")}</div>
+          </>
         )}
       </div>
       {props.deletion && (props.deletion.confirming ? (
@@ -230,7 +235,7 @@ function ConfigurationRow(props: {
           </svg>
         </button>
       ))}
-    </div>
+    </label>
   );
 }
 

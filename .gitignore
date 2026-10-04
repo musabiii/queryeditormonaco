@@ -43,9 +43,7 @@ next-env.d.ts
 # monaco (копируется из node_modules скриптом scripts/copy-monaco.mjs)
 /public/monaco
 
-/zupfiles/
-/medicine/
-/univer/
+/confexample/
 
 # ссылки «Поделиться» при локальном запуске (SHARE_DIR по умолчанию)
 /data/

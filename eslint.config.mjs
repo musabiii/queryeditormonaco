@@ -14,10 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Копия сборки monaco-editor (scripts/copy-monaco.mjs)
     "public/monaco/**",
-    // Локальная выгрузка конфигурации для проверки загрузки метаданных (в .gitignore)
-    "zupfiles/**",
-    "medicine/**",
-    "univer/**",
+    // Локальные выгрузки конфигураций для встроенных моделей (в .gitignore)
+    "confexample/**",
     // Разборщик языка запросов, сгенерированный ANTLR из grammar/sdbl (npm run grammar:build)
     "src/lib/query-language/sdbl/generated/**",
   ]),
