@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/next";
+import { UmamiAnalytics } from "@/components/UmamiAnalytics";
 import { YandexMetrika } from "@/components/YandexMetrika";
 import { themeInitScript } from "@/lib/theme";
 import "./globals.css";
@@ -26,6 +27,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* На своём сервере — Яндекс Метрика, номер счётчика в YANDEX_METRIKA_ID. */}
         <Suspense fallback={null}>
           <YandexMetrika />
+        </Suspense>
+        {/* И/или Umami: адрес в UMAMI_URL, сайт в UMAMI_WEBSITE_ID. */}
+        <Suspense fallback={null}>
+          <UmamiAnalytics />
         </Suspense>
       </body>
     </html>

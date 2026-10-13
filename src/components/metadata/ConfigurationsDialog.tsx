@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MD_KINDS, type ConfigurationSummary, type ImportStats, type MdKind } from "@/lib/metadata/model";
 import { supportsDirectoryPicker } from "@/lib/metadata/pick-dump";
+import { track } from "@/lib/analytics";
 import type { useConfigurations } from "@/lib/metadata/use-configurations";
 
 type Props = {
@@ -23,6 +24,7 @@ export function ConfigurationsDialog({ configurations, onClose }: Props) {
   }, []);
 
   const pickFolder = () => {
+    track("Загрузка своей конфигурации");
     if (supportsDirectoryPicker()) void configurations.importFromDirectory();
     else inputRef.current?.click();
   };
@@ -57,7 +59,10 @@ export function ConfigurationsDialog({ configurations, onClose }: Props) {
                   key={summary.id}
                   summary={summary}
                   active={summary.id === active?.id}
-                  onActivate={() => setActive(summary.id)}
+                  onActivate={() => {
+                    track("Конфигурация", { name: summary.builtinFile ? (summary.synonym ?? summary.name) : "своя" });
+                    setActive(summary.id);
+                  }}
                 />
               ))}
             </section>
@@ -79,7 +84,10 @@ export function ConfigurationsDialog({ configurations, onClose }: Props) {
                   key={summary.id}
                   summary={summary}
                   active={summary.id === active?.id}
-                  onActivate={() => setActive(summary.id)}
+                  onActivate={() => {
+                    track("Конфигурация", { name: summary.builtinFile ? (summary.synonym ?? summary.name) : "своя" });
+                    setActive(summary.id);
+                  }}
                   deletion={{
                     confirming: confirmDelete === summary.id,
                     onAsk: () => setConfirmDelete(summary.id),

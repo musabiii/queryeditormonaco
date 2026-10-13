@@ -9,6 +9,7 @@ import {
   type BatchQuery,
   type QueryParameter,
 } from "@/lib/query-language";
+import { track } from "@/lib/analytics";
 import { loadModel } from "@/lib/metadata/builtin";
 import { SAMPLE_QUERY } from "@/lib/sample-query";
 import { useConfigurations } from "@/lib/metadata/use-configurations";
@@ -92,11 +93,24 @@ export function QueryWorkbench({ initialQuery, sharedUntil }: Props) {
       <QueryToolbar
         onComment={() => editorRef.current?.commentLines()}
         onUncomment={() => editorRef.current?.uncommentLines()}
-        onFormat={() => editorRef.current?.format()}
-        onUnwrap={() => editorRef.current?.unwrapCodeString() ?? false}
-        onShare={() => setShareText(editorRef.current?.getText() ?? "")}
-        onClear={() => editorRef.current?.replaceAll("")}
+        onFormat={() => {
+          track("Форматирование");
+          editorRef.current?.format();
+        }}
+        onUnwrap={() => {
+          track("Убрать оформление кода 1С");
+          return editorRef.current?.unwrapCodeString() ?? false;
+        }}
+        onShare={() => {
+          track("Поделиться");
+          setShareText(editorRef.current?.getText() ?? "");
+        }}
+        onClear={() => {
+          track("Очистить");
+          editorRef.current?.replaceAll("");
+        }}
         onShowBslCode={() => {
+          track("Текст для кода 1С");
           const editor = editorRef.current;
           if (editor) setBslCode(bslQueryCode(editor.getSelectedText() || editor.getText()));
         }}
@@ -104,14 +118,23 @@ export function QueryWorkbench({ initialQuery, sharedUntil }: Props) {
         showWhitespace={showWhitespace}
         onToggleWhitespace={() => setShowWhitespace((value) => !value)}
         syntaxCheck={syntaxCheck}
-        onToggleSyntaxCheck={toggleSyntaxCheck}
+        onToggleSyntaxCheck={() => {
+          track("Проверка синтаксиса", { enabled: !syntaxCheck });
+          toggleSyntaxCheck();
+        }}
         aiOpen={aiOpen}
-        onToggleAi={() => setAiOpen((value) => !value)}
+        onToggleAi={() => {
+          if (!aiOpen) track("ИИ-помощник");
+          setAiOpen(!aiOpen);
+        }}
         onOpenConfigurations={() => setConfigurationsOpen(true)}
         treeOpen={treeOpen}
         onToggleTree={() => setTreeOpen((value) => !value)}
         scheme={scheme}
-        onSchemeChange={setScheme}
+        onSchemeChange={(id) => {
+          track("Цветовая схема", { scheme: id });
+          setScheme(id);
+        }}
       />
 
       <main className="flex min-h-0 flex-1">
