@@ -6,6 +6,9 @@ public/monaco
 # Выгрузки конфигураций (сотни МБ) — в образ попадают только готовые модели из public/configurations.
 confexample
 
+# Картинки для README.
+docs
+
 .git
 data
 .github
